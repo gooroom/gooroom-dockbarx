@@ -1,0 +1,63 @@
+# Dutch translation for dockbar
+# Copyright (c) 2010 Rosetta Contributors and Canonical Ltd 2010
+# This file is distributed under the same license as the dockbar package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dockbar\n"
+"Report-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2010-06-09 13:23+0300\n"
+"PO-Revision-Date: 2011-12-07 15:52+0000\n"
+"Last-Translator: Justin van Beusekom <Unknown>\n"
+"Language-Team: Dutch <nl@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2012-10-20 14:31+0000\n"
+"X-Generator: Launchpad (build 16165)\n"
+
+msgid "Window list background"
+msgstr "Schermlijst achtergrond"
+
+msgid "Normal text"
+msgstr "Normale tekst"
+
+msgid "Active window text"
+msgstr "Tekst in actief venster"
+
+msgid "Active window"
+msgstr "Actief venster"
+
+msgid "Minimized window text"
+msgstr "Tekst in geminimaliseerd venster"
+
+msgid "Active color"
+msgstr "Actieve kleur"
+
+msgid "Not used"
+msgstr "Niet gebruikt"
+
+msgid "Active"
+msgstr "Actief"
+
+msgid "Launching color"
+msgstr "Opstartkleur"
+
+msgid "Attention color"
+msgstr "Opvallende kleur"
+
+msgid "Minimized color"
+msgstr "Geminimaliseerde kleur"
+
+msgid "Active glow"
+msgstr "Actieve gloed"
+
+msgid "Button color"
+msgstr "Knop kleur"
+
+msgid "Active + indicator color"
+msgstr "Actieve + aanwijzer kleur"
+
+msgid "Active + dots color"
+msgstr "Actief + stippellijn kleur"

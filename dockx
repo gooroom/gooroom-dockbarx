@@ -1,0 +1,1518 @@
+#!/usr/bin/python2
+#-*- coding: utf-8 -*-
+
+#   DockX
+#
+#	Copyright 2011 Matias Sars
+#   Copyright (C) 2015-2019 Gooroom <gooroom@gooroom.kr>
+#
+#	DockbarX is free software: you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation, either version 3 of the License, or
+#	(at your option) any later version.
+#
+#	DockbarX is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You should have received a copy of the GNU General Public License
+#	along with dockbar.  If not, see <http://www.gnu.org/licenses/>.
+
+from dockbarx.log import *
+import sys
+log_to_file()
+sys.stderr = StdErrWrapper()
+sys.stdout = StdOutWrapper()
+
+import gi
+gi.require_version('Gtk','3.0')
+gi.require_version('PangoCairo','1.0')
+gi.require_version('Wnck','3.0')
+
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import PangoCairo
+from gi.repository import Wnck
+from gi.repository import GObject
+from gi.repository import GLib
+from gi.repository import Gio
+
+import dockbarx.dockbar
+from dockbarx.common import Globals
+from dockbarx.theme import DockTheme
+from dockbarx.applets import DockXApplets, DockXApplet
+from Xlib import display
+from Xlib import X
+import cairo
+from math import pi, sin, cos, tan, atan
+import weakref
+import time
+import dbus
+import dbus.service
+
+WNCK_WINDOW_STATE_MINIMIZED = 1
+
+class CairoDockX(Gtk.Window):
+    """The Dock Window for running DockbarX as a standalone dock"""
+    __gsignals__ = {"draw": "override"}
+    def __init__(self):
+        Gtk.Window.__init__(self)
+        self.globals = Globals()
+        self.theme = DockTheme()
+        self.set_type_hint(Gdk.WindowTypeHint.DOCK)
+        self.stick()
+        self.set_accept_focus(False)
+        self.set_decorated(False)
+        self.set_resizable(False)
+        gtk_screen = Gdk.Screen.get_default()
+        colormap = gtk_screen.get_rgba_visual()
+        if colormap is None:
+            colormap = gtk_screen.get_rgb_visual()
+        self.set_visual(colormap)
+        self.set_app_paintable(1)
+        self.button_area = Gtk.Alignment()
+        self.button_area.set(0, 0, 1, 1)
+        Gtk.Window.add(self, self.button_area)
+        self.compute_padding()
+        self.globals.connect("dock-color-changed", self.__on_color_changed)
+        #self.connect("draw", self.on_draw)
+
+    def do_draw(self, event):
+        #FIXME: jeong
+        self.get_window().set_background_pattern(None)
+        self.set_shape_mask()
+        w,h = self.get_size()
+        self.ctx = self.get_window().cairo_create()
+        if self.is_composited():
+            self.ctx.set_source_rgba(1, 1, 1, 0)
+        else:
+            self.ctx.set_source_rgb(0.8, 0.8, 0.8)
+        self.ctx.set_operator(cairo.OPERATOR_SOURCE)
+        self.ctx.paint()
+        rect = self.get_allocation()
+        self.ctx.rectangle(rect.x, rect.y,
+                           rect.width, rect.height)
+        self.ctx.clip()
+        self.draw_frame(self.ctx, w, h)
+        Gtk.Window.do_draw(self, event)
+        if self.get_child():
+            self.propagate_draw(self.get_child(), event)
+
+    def set_shape_mask(self):
+        # Set window shape from alpha mask of background image
+        pos = self.globals.settings["dock/position"]
+        w, h = self.get_size()
+        if w==0 or h==0:
+            return
+        #pixmap = Gtk.gdk.Pixmap (None, w, h, 1)
+        #ctx = pixmap.cairo_create()
+        cr = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        ctx = cairo.Context(cr)
+        ctx.set_source_rgba(0, 0, 0, 0)
+        ctx.set_operator (cairo.OPERATOR_SOURCE)
+        ctx.paint()
+        if self.is_composited():
+            if self.dockbar is not None:
+                ctx.set_source_rgba(1, 1, 1, 1)
+                a = self.dockbar.get_container().get_allocation()
+                ctx.rectangle(a.x, a.y, a.width, a.height)
+                ctx.fill()
+        w, h = self.__set_rotation(pos, ctx, w, h)
+        stroke_path, fill_path = self.__make_path(ctx, w, h, bar2=False)
+        ctx.new_path()
+        ctx.set_source_rgba(1, 1, 1, 1)
+        ctx.append_path(fill_path)
+        ctx.fill()
+        ctx.set_source_rgba(1, 1, 1, 1)
+        ctx.append_path(stroke_path)
+        ctx.set_line_width(0.8)
+        ctx.stroke()
+        if int(self.theme.get("use_bar2", False)):
+            stroke_path, fill_path = self.__make_path(ctx, w, h, bar2=True)
+            ctx.new_path()
+            ctx.set_source_rgba(1, 1, 1, 1)
+            ctx.append_path(fill_path)
+            ctx.fill()
+            ctx.set_source_rgba(1, 1, 1, 1)
+            ctx.append_path(stroke_path)
+            ctx.set_line_width(0.8)
+            ctx.stroke()
+
+        #rg = Gdk.cairo_region_create_from_surface(cr)
+        #if self.is_composited():
+        #    self.get_window().shape_combine_region(None, 0, 0)
+        #    self.get_window().input_shape_combine_region(rg, 0, 0)
+        #else:
+        #    self.get_window().shape_combine_region(rg, 0, 0)
+
+    def draw_frame(self, ctx, w, h):
+        pos = self.globals.settings["dock/position"]
+        w, h = self.__set_rotation(pos, ctx, w, h)
+        self.__make_path(ctx, w, h, bar2=False)
+        color = self.globals.dock_colors["bg_color"]
+        red, green, blue = self.__parse_color(color)
+        alpha = self.globals.dock_colors["bg_alpha"] / 255.0
+        #~ ctx.new_path()
+        #~ ctx.append_path(fill_path)
+        if self.is_composited():
+            ctx.set_source_rgba(red, green, blue, alpha)
+        else:
+            ctx.set_source_rgb(red, green, blue)
+        ctx.fill_preserve()
+        ctx.set_operator(cairo.OPERATOR_OVER)
+        # Linear gradients
+        for n in (1, 2, 3):
+            name = "linear_gradient%s" % n
+            if not int(self.theme.get("use_%s" % name, 0)):
+                continue
+            pattern = self.__make_linear_pattern(w, h, n)
+            rpc1 = self.theme.get("%s_start_color" % name, "#FFFFFF")
+            if not rpc1[0] == "#":
+                rpc1 = "#%s" % rpc1
+            red, green, blue = self.__parse_color(rpc1)
+            alpha = self.theme.get("%s_start_alpha" % name, 20)
+            alpha = float(alpha) / 100
+            pattern.add_color_stop_rgba(0.0, red, green, blue, alpha)
+            
+            rpc2 = self.theme.get("%s_stop_color" % name, "#FFFFFF")
+            if not rpc2[0] == "#":
+                rpc2 = "#%s" % rpc2
+            red, green, blue = self.__parse_color(rpc2)
+            alpha = self.theme.get("%s_stop_alpha" % name, 0)
+            alpha = float(alpha) / 100
+            pattern.add_color_stop_rgba(1.0, red, green, blue, alpha)
+            ctx.set_source(pattern)
+            ctx.fill_preserve()
+        # Background picture
+        if self.theme.bg[1] is not None:
+            if self.theme.get("strech_bg_img", False):
+                pattern = cairo.SurfacePattern(self.theme.get_bg(1, h))
+            else:
+                pattern = cairo.SurfacePattern(self.theme.get_bg(1))
+            pattern.set_extend(cairo.EXTEND_REPEAT)
+            ctx.set_source(pattern)
+            ctx.fill_preserve()
+        # Stroke the outer border
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        #~ ctx.append_path(stroke_path)
+        # Since copy_path/append_path puts the path in the wrong position
+        # in cairo 1.12 we have to call make path again to make the stroke path
+        self.__make_path(ctx, w, h, bar2=False, stroke_only=True)
+        color = self.theme.get("border_color", "#000000")
+        red, green, blue = self.__parse_color(color)
+        ctx.set_source_rgb(red, green, blue)
+        bw = float(self.theme.get("border_width", 0.8))
+        ctx.set_line_width(bw)
+        ctx.stroke()
+        if not int(self.theme.get("use_bar2", False)):
+            return
+
+        if self.theme.get("bar2_type") == "layer":
+            ctx.set_operator(cairo.OPERATOR_OVER)
+        self.__make_path(ctx, w, h, bar2=True)
+        color = self.globals.dock_colors["bar2_bg_color"]
+        red, green, blue = self.__parse_color(color)
+        alpha= self.globals.dock_colors["bar2_bg_alpha"] / 255.0
+        #~ ctx.new_path()
+        #~ ctx.append_path(fill_path)
+        if self.is_composited():
+            ctx.set_source_rgba(red, green, blue, alpha)
+        else:
+            ctx.set_source_rgb(red, green, blue)
+        ctx.fill_preserve()
+        ctx.set_operator(cairo.OPERATOR_OVER)
+        # Linear gradients
+        for n in (1, 2, 3):
+            name = "bar2_linear_gradient%s" % n
+            if not int(self.theme.get("bar2_use_linear_gradient%s" % n, 0)):
+                continue
+            pattern = self.__make_linear_pattern(w, h, n, bar2=True)
+            rpc1 = self.theme.get("%s_start_color" % name, "#FFFFFF")
+            if not rpc1[0] == "#":
+                rpc1 = "#%s" % rpc1
+            red, green, blue = self.__parse_color(rpc1)
+            alpha = self.theme.get("%s_start_alpha" % name, 20)
+            alpha = float(alpha) / 100
+            pattern.add_color_stop_rgba(0.0, red, green, blue, alpha)
+            
+            rpc2 = self.theme.get("%s_stop_color" % name, "#FFFFFF")
+            if not rpc2[0] == "#":
+                rpc2 = "#%s" % rpc2
+            red, green, blue = self.__parse_color(rpc2)
+            alpha = self.theme.get("%s_stop_alpha" % name, 0)
+            alpha = float(alpha) / 100
+            pattern.add_color_stop_rgba(1.0, red, green, blue, alpha)
+            ctx.set_source(pattern)
+            ctx.fill_preserve()
+        # Background picture
+        if self.theme.bg[2] is not None:
+            if self.theme.get("bar2_strech_bg_img", False):
+                pattern = cairo.SurfacePattern(self.theme.get_bg(2, h))
+            else:
+                pattern = cairo.SurfacePattern(self.theme.get_bg(2))
+            pattern.set_extend(cairo.EXTEND_REPEAT)
+            ctx.set_source(pattern)
+            ctx.fill_preserve()
+        # Stroke the outer border
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        color = self.theme.get("bar2_border_color", "#000000")
+        red, green, blue = self.__parse_color(color)
+        # Since copy_path/append_path puts the path in the wrong position
+        # in cairo 1.12 we have to call make path again to make the stroke path
+        self.__make_path(ctx, w, h, bar2=True, stroke_only=True)
+        #~ ctx.append_path(stroke_path)
+        ctx.set_source_rgb(red, green, blue)
+        bw = float(self.theme.get("bar2_border_width", 0.8))
+        ctx.set_line_width(bw)
+        ctx.stroke()
+        
+
+    def __set_rotation(self, pos, ctx, w, h):
+        # Changes the user space so that the dock can be drawn as if
+        # it's at the bottom no matter where it's really placed.
+        if pos == "left":
+            old = h
+            h = w
+            w = old
+            del old
+            ctx.rotate(pi/2)
+            ctx.translate(0, -h)
+        elif pos == "right":
+            old = h
+            h = w
+            w = old
+            del old
+            ctx.rotate(pi/2)
+            ctx.scale(1, -1)
+        elif pos == "top":
+            ctx.scale(1, -1)
+            ctx.translate(0, -h)
+        return w, h
+
+    def __make_path(self, ctx, w, h, bar2=False, stroke_only=False):
+        # Create the stroke and fill paths
+        mode = self.globals.settings["dock/mode"]
+        ed = self.globals.settings["dock/end_decorations"]
+        if bar2:
+            # slope is recalculated in such a way that 0 means a straight
+            # angle, positive numbers means outwards slope and negative
+            # numbers inwards. In radians.
+            slope = -(float(self.theme.get("bar2_slope", 90)) - 90) / 180.0*pi
+            bend = float(self.theme.get("bar2_bend", 0))
+            r = float(self.theme.get("bar2_roundness", 6))
+            sp = int(self.theme.get("bar2_side_padding", 6))
+            rel_size = float(self.theme.get("bar2_rel_size", 100.0))
+            rel_size2 = float(self.theme.get("rel_size", 100.0))
+            slope2 = -(float(self.theme.get("slope", 90)) - 90) / 180.0 * pi
+            sp2 = int(self.theme.get("side_padding", 6))
+            if not self.is_composited() and rel_size2 < 100:
+                rel_size2 = 100.0
+        else:
+            slope = -(float(self.theme.get("slope", 90)) - 90) / 180.0 * pi
+            bend = float(self.theme.get("bend", 0))
+            r = float(self.theme.get("roundness", 6))
+            sp = int(self.theme.get("side_padding", 6))
+            rel_size = float(self.theme.get("rel_size", 100.0))
+            if int(self.theme.get("use_bar2", False)):
+                rel_size2 = float(self.theme.get("bar2_rel_size", 100.0))
+                slope2 = -(float(self.theme.get("bar2_slope", 90)) - 90)
+                slope2 = slope2 / 180.0 * pi 
+                sp2 = int(self.theme.get("bar2_side_padding", 6))
+            else:
+                rel_size2 = 0
+                slope2 = 0
+                sp2 = 0
+            if not self.is_composited() and rel_size < 100:
+                rel_size = 100.0
+        size = int(self.globals.settings["dock/size"] * rel_size / 100)
+        size2 = int(self.globals.settings["dock/size"] * rel_size2 / 100)
+        t = h - size
+        d1 = int(tan(abs(slope)) * size)
+        d2 = int(bend / 100 * d1)
+        p = max(int(tan(abs(slope2)) * size2) + sp2 - d1 - sp, 0)
+        if mode == "centered" or ed:
+            y0 = h
+            y3 = t + 0.5
+            if slope < 0:
+                x0 = p + 0.5 + d1
+                x1 = x0 - d2
+                y1 = y0
+                x3 = p + 0.5
+                rad = atan((x1-x3)/(y1-y3))
+                x2 = x3 + sin(rad) * r
+                y2 = y3 + cos(rad) * r
+            else:
+                x0 = p + 0.5
+                x1 = x0 + d2
+                y1 = y0
+                x3 = p + 0.5 + d1
+                rad = atan((x3-x1)/(y1-y3))
+                x2 = x3 - sin(rad) * r
+                y2 = y3 + cos(rad) * r
+            ctx.move_to(x0, y0)
+            ctx.curve_to(x1, y1, x1, y1, x2, y2)
+            ctx.curve_to(x3, y3, x3, y3, x3 + r, y3)
+        else:
+            ctx.move_to(0, t + 0.5)
+        if mode == "centered" or mode == "corner" or ed:
+            y3 = h
+            y0 = t + 0.5
+            if slope < 0:
+                x3 = w - p - 0.5 - d1
+                x2 = x3 + d2
+                y2 = y3
+                x0 = w - p - 0.5
+                rad = atan((x0-x2)/(y2-y0))
+                x1 = w - p - 0.5 - sin(rad) * r
+                y1 = y0 + cos(rad) * r
+            else:
+                x3 = w - p - 0.5
+                x2 = x3 - d2
+                y2 = y3
+                x0 = w - p - 0.5 - d1
+                rad = atan((x2-x0)/(y2-y0))
+                x1 = x0 + sin(rad) * r
+                y1 = y0 + cos(rad) * r
+            ctx.line_to(x0 - r, y0)
+            ctx.curve_to(x0, y0, x0, y0, x1, y1)
+            ctx.curve_to(x2, y2, x2, y2, x3, y3)
+        else:
+            ctx.line_to(w, t + 0.5)
+        if stroke_only:
+            # Only stroke path is interesting and it is used right away.
+            return
+        stroke_path = ctx.copy_path()
+        ctx.line_to(w, h)
+        ctx.line_to(0, h)
+        ctx.close_path()
+        fill_path = ctx.copy_path()
+        return stroke_path, fill_path
+
+    def __parse_color(self, color):
+        if color[0] != "#":
+            color = "#%s" % color
+        red = float(int(color[1:3], 16))/255
+        green = float(int(color[3:5], 16))/255
+        blue = float(int(color[5:7], 16))/255
+        return red, green, blue
+
+    def __make_linear_pattern(self, w, h, n, bar2=False):
+        if bar2:
+            name = "bar2_linear_gradient%s" % n
+            rel_size = float(self.theme.get("bar2_rel_size", 100.0))
+        else:
+            name = "linear_gradient%s" % n
+            rel_size = float(self.theme.get("rel_size", 100.0))
+        angle = int(self.theme.get("%s_angle" % name, 0))
+        start = float(self.theme.get("%s_start" % name, 0))
+        stop = float(self.theme.get("%s_stop" % name, 100))
+        size = int(self.globals.settings["dock/size"] * rel_size / 100)
+        t = h - size
+        start_x = None
+        angle =  angle % 360
+        if angle < 0:
+            angle += 360
+        if angle == 0:
+            start_x = start * w / 100.0
+            start_y = 0
+            stop_x = stop * w / 100.0
+            stop_y = 0
+        if angle == 180:
+            start_x = w - (start * w / 100.0)
+            start_y = 0
+            stop_x = w - (stop * w / 100.0)
+            stop_y = 0
+        elif angle == 270:
+            start_x = 0
+            start_y = t + start * size / 100.0
+            stop_x = 0
+            stop_y = t + stop * size / 100.0
+        elif angle == 90:
+            start_x = 0
+            start_y = h - (start * size / 100.0)
+            stop_x = 0
+            stop_y = h - (stop * size / 100.0)
+        elif angle < 90:
+            x1 = w * start / 100.0
+            y1 = h - size * start / 100.0
+            x2 = w * stop / 100.0
+            y2 = h - size * stop / 100.0
+        elif 90 < angle  and angle < 180:
+            x1 = w - (w * start / 100.0)
+            y1 = h - size * start / 100.0
+            x2 = w - (w * stop / 100.0)
+            y2 = h - size * stop / 100.0
+        elif 180 < angle and angle < 270: 
+            x1 = w - (w * start / 100.0)
+            y1 = t + size * start / 100.0
+            x2 = w - (w * stop / 100.0)
+            y2 = t + size * stop / 100.0
+        elif 270 < angle:
+            x1 = w * start / 100.0
+            y1 = t + size * start / 100.0
+            x2 = w * stop / 100.0
+            y2 = t + size * stop / 100.0
+        if start_x is None:
+            k1 = -tan(angle * pi / 180.0 )
+            k2 = -1 / k1
+            start_x = x1
+            start_y = y1
+            stop_x = (k1 * x1 - k2 * x2 + y2 - y1) / (k1 - k2)
+            stop_y = k1 * (stop_x - x1) + y1
+        return cairo.LinearGradient(start_x, start_y, stop_x, stop_y)
+
+    def compute_padding(self):
+        pos = self.globals.settings["dock/position"]
+        size = self.globals.settings["dock/size"]
+        rel_size = float(self.theme.get("rel_size", 100))
+        if int(self.theme.get("use_bar2", False)):
+            b2_rel_size = rel_size = float(self.theme.get("bar2_rel_size",
+                                           100))
+        else:
+            b2_rel_size = 0
+        p = max(int(size*rel_size/100) - size,
+                int(size*b2_rel_size/100) - size,
+                0)
+        # Todo: Is rel_bottom_padding really a good idea? Decide.
+        rb = float(self.theme.get("rel_bottom_padding", 0))
+        b = int(size * rb / 100)
+        if pos == "left":
+            padding = (0, 0, b, p)
+        elif pos == "right":
+            padding = (0, 0, p, b)
+        elif pos == "top":
+            padding = (b, p, 0, 0)
+        else:
+            padding = (p, b, 0, 0)
+        self.button_area.set_padding(*padding)
+
+    def add_box(self, widget):
+        self.button_area.add(widget)
+
+    def remove_box(self):
+        self.button_area.remove(widget)
+
+    def __on_color_changed(self, *args):
+        self.queue_draw()
+
+        
+class DockX(CairoDockX):
+    __gsignals__ = {"destroy": "override",
+                    "size-allocate": "override"}
+    def __init__(self, monitor=0):
+        self.globals = Globals()
+        self.empty_space = {"left": 1000, "right": 1000,
+                            "top": 1000, "bottom":1000}
+        self.geometry_time = 0
+        self.last_geometry_window = lambda: None
+        #if self.globals.settings["dock/behavior"] in ("panel", "standard"):
+        if self.globals.settings["dock/behavior"] in ("panel", "standard"):
+            self.autohide = False
+        else:
+            self.autohide = True
+        self.screen = Wnck.Screen.get_default()
+        self.monitor = monitor
+        self.windows = weakref.WeakKeyDictionary()
+        self.border_distances = weakref.WeakKeyDictionary()
+        self.db_loaded = False
+        self.dockbar = dockbarx.dockbar.DockBar(parent=self)
+        self.dockbar.set_parent_handles_menu(True)
+        self.dockbar.set_parent_window_reporting(True)
+        self.dockbar.set_no_theme_change_reload(True)
+        self.dockbar.set_no_dbus_reload(True)
+        self.dockbar.set_keyboard_show_dock(True)
+        self.dockbar.set_expose_on_clear(True)
+        self.dockbar.load()
+        self.db_loaded = True
+        CairoDockX.__init__(self)
+        self.set_keep_above(True)
+        self.autohide_sid = None
+        self.autounhide_sid = None
+        self.autounhide_sid = None
+        self.dockbar_max_size = None
+        self.old_x = 0
+        self.old_y = 0
+        self.old_width = 0
+        self.old_height = 0
+        self.box = Gtk.HBox()
+        self.position_boxes = None
+        self.applet_sids = {}
+        self.padding1 = EventPadding(self)
+        self.padding2 = EventPadding(self)
+        self.spacer1 = EventPadding(self)
+        self.spacer2 = EventPadding(self)
+        self.add_box(self.box)
+        self.applets = DockXApplets()
+        self.position_dock()
+        self.globals.connect("dock-size-changed", self.__on_dock_size_changed)
+        self.globals.connect("dock-position-changed",
+                             self.__on_position_changed)
+        self.globals.connect("dock-mode-changed", self.__on_mode_changed)
+        self.globals.connect("dock-offset-changed", self.__on_offset_changed)
+        self.globals.connect("dock-behavior-changed",
+                             self.__on_behavior_changed)
+        self.__compute_should_autohide()
+        self.screen.connect("active-window-changed",
+                            self.__on_active_window_changed)
+        self.globals.connect("theme-changed", self.reload)
+        self.globals.connect("dock-end-decorations-changed",
+                           self.__on_end_decorations_changed)
+        self.theme.connect("dock-theme-reloaded",
+                           self.__on_dock_theme_reloaded)
+        screen = Gdk.Screen.get_default()
+        screen.connect("size-changed", self.__on_screen_size_changed)
+        if self.autohide:
+            self.show_dock()
+        self.dbus_obj = DockXDBus(self)
+
+    def position_dock(self, rebuild=False):
+        centered = self.globals.settings["dock/mode"] == "centered"
+        cornered = self.globals.settings["dock/mode"] == "corner"
+        ed = self.globals.settings["dock/end_decorations"]
+        pos = self.globals.settings["dock/position"]
+        orient = {"top": "up", "left": "left",
+                   "right": "right", "bottom": "down"}[pos]
+        if self.dockbar.get_orient() != orient or not self.box.get_children():
+            self.dockbar.set_orient(orient)
+            rebuild = True
+        if rebuild:
+            self.__rebuild()
+        else:
+            self.__update_applets()
+        rect = self.get_monitor_geometry()
+        mx = rect.x; my = rect.y; mw = rect.width; mh = rect.height
+        l, r, t, b = self.__get_monitor_and_strut_borders()
+        sw = self.get_screen().get_width()
+        sh = self.get_screen().get_height()
+        rel_size = float(self.theme.get("rel_size", 100))
+        db_size = self.globals.settings["dock/size"]
+        size = max(db_size, int(db_size * rel_size / 100))
+        o = self.globals.settings["dock/offset"]
+        if pos == "left":
+            x,y, w, h = (l, t + o, size, sh - t - b - o)
+            strut = [x + w, 0, 0, 0, y, y + h - 1, 0, 0, 0, 0, 0, 0]
+        elif pos == "right":
+            x,y, w, h = (sw - size - r, t + o, size, sh - t - b - o)
+            strut = [0, sw - x, 0, 0, 0, 0, y, y + h - 1, 0, 0, 0, 0]
+        elif pos == "top":
+            x,y, w, h = (l + o, t, sw - l - r - o, size)
+            strut = [0, 0, y + h, 0, 0, 0, 0, 0, x, x + w - 1, 0, 0]
+        else:
+            x,y, w, h = (l + o, sh - size - b, sw - l - r - o, size)
+            strut = [0, 0, 0, sh - y, 0, 0, 0, 0, 0, 0, x, x + w - 1]
+        if (centered or cornered) and pos in ("left", "right"):
+            self.set_size_request(w, -1)
+        elif (centered or cornered):
+            self.set_size_request(-1, h)
+        else:
+            self.set_size_request(w, h)
+        self.__set_dock_strut(x, y, w, h)
+        if centered and pos in ("left", "right"):
+            a = self.get_allocation()
+            self.move(x, my + mh / 2 - a.height / 2)
+        elif centered:
+            a = self.get_allocation()
+            self.move(mx + mw / 2 - a.width / 2, y)
+        else:
+            self.move(x, y)
+            self.old_x = x
+            self.old_y = y
+        self.dockbar.set_size(db_size)
+
+    def __rebuild(self):
+        self.__destroy_old()
+        centered = self.globals.settings["dock/mode"] == "centered"
+        cornered = self.globals.settings["dock/mode"] == "corner"
+        panel = self.globals.settings["dock/mode"] == "panel"
+        ed = self.globals.settings["dock/end_decorations"]
+        pos = self.globals.settings["dock/position"]
+        
+        if pos in ("left", "right"):
+            gtk_box = Gtk.VBox
+        else:
+            gtk_box = Gtk.HBox
+        self.box = gtk_box()
+        self.add_box(self.box)
+        # Padding/End decorations before applets
+        self.box.pack_start(self.padding1, False, False, 0)
+        self.padding1.compute_size(centered or ed)
+        # Add the applets to the dock
+        alist = self.applets.get_list()
+        self.__add_applets(alist, pos, panel)
+        # Padding/End decorations after applets
+        self.box.pack_start(self.padding2, False, False, 0)
+        self.padding2.compute_size(centered or cornered or ed)
+        # Define if the paddings has a position right
+        # before or after the dockbarx applet.
+        # Needed for drag and drop behavior.
+        p1 = p2 = None
+        if alist[0] == "DockbarX":
+            p1 = "before"
+        if alist[-1] == "DockbarX":
+            p2 = "after"
+        self.padding1.define_position(p1)
+        self.padding2.define_position(p2)
+        self.show_all()
+        self.connect_applet_signals()
+        # Do a first calculation of dockbarx max size after everything has been realised.
+        GLib.idle_add(self.__calulate_db_max_size_on_realized)
+
+    def __destroy_old(self):
+        self.disconnect_applet_signals()
+        # Clean up the old box
+        for child in self.box.get_children():
+            self.box.remove(child)
+        self.box.destroy()
+        if self.position_boxes:
+            for box in self.position_boxes:
+                for child in box.get_children():
+                    box.remove(child)
+                box.destroy()
+                
+    def __add_applets(self, alist, pos, panel):
+        # Add the applets to the dock
+        self.position_boxes = self.__setup_boxes(alist, pos, panel)
+        if self.position_boxes:
+            box = self.position_boxes[0]
+        else:
+            box = self.box
+        expanded = False
+        spacer = self.spacer1
+        for i in range(len(alist)):
+            name = alist[i]
+            if name == "Spacer" and panel:
+                if self.position_boxes and box == self.position_boxes[1]:
+                    # Put the second spacer in the right/bottom box.
+                    # Start putting applets in the right/bottom box.
+                    box = self.position_boxes[2]
+                box.pack_start(spacer, True, True)
+                # Define spacer posistion relative to dbx
+                # Needed for correct drag and drop behavior.
+                if i != 0 and alist[i - 1] == "DockbarX":
+                    if not self.position_boxes:
+                        # Instead of adding a spacer after the dockbar
+                        # we set dockbar to expand.
+                        self.__dockbar_set_expand(box, True)
+                        expanded = True
+                        continue
+                    spacer.define_position("after")
+                elif i + 1 != len(alist) and alist[i + 1] == "DockbarX":
+                    spacer.define_position("before")
+                if self.position_boxes and box == self.position_boxes[0]:
+                    # The first spacer is in the left/top box.
+                    # Start putting applets in the middle box.
+                    box = self.position_boxes[1]
+                    spacer = self.spacer2
+                expanded = True
+            if name == "Spacer":
+                continue
+            if name == "DockbarX":
+                applet = self.dockbar.get_container()
+                expand = False
+            else:
+                appletscr = self.applets.get(name)
+                if appletscr is None:
+                    continue
+                applet = appletscr.get_dbx_applet({"name":name, "dock":self})
+                expand = applet.get_expand() and panel
+            if expand:
+                expanded = True
+            box.pack_start(applet, expand, expand, 0)
+        if panel and not expanded:
+            # The dockbar should expand if nothing else on the panel does.
+            self.__dockbar_set_expand(box, True)
+            expanded = True
+        return expanded
+    
+    def __setup_boxes(self, alist, pos, panel):
+        # Three boxes (left/center/right or top/middle/bottom)
+        # are needed if the dock should contain centered applets,
+        # which happens if two spacers are used and panel mode is selected.
+        if alist.count("Spacer") == 2 and panel:
+            # Make three boxes and prepare them
+            if pos in ("left", "right"):
+                gtk_box = Gtk.VBox
+            else:
+                gtk_box = Gtk.HBox
+            boxes = [gtk_box(), gtk_box(),gtk_box()]
+            self.box.pack_start(boxes[0], True, True)
+            self.box.pack_start(boxes[1], False, False)
+            self.box.pack_start(boxes[2], True, True)
+            # Use hugh size requests so that the boxes get equaly large.
+            if pos in ("left", "right"):
+                boxes[0].set_size_request(-1, 3000)
+                boxes[2].set_size_request(-1, 3000)
+            else:
+                boxes[0].set_size_request(3000, -1)
+                boxes[2].set_size_request(3000, -1)
+        else:
+            boxes = None
+        return boxes
+
+    def __dockbar_set_expand(self, box, expand):
+        cp = box.query_child_packing(self.dockbar.get_container())
+        cp = (expand, expand, cp[2], cp[3])
+        box.set_child_packing(self.dockbar.get_container(), *cp)
+        
+    def connect_applet_signals(self):
+        # Adds size-allocate signals for all applets.
+        self.applet_sids = {}
+        applets = self.__get_applets()
+        for app in applets:
+            if isinstance(app, DockXApplet) and not app.get_expand():
+                sid = app.connect("size-allocate", self.__on_applet_size_allocate)
+                self.applet_sids[app]=sid
+                
+    def disconnect_applet_signals(self):
+        while self.applet_sids:
+            app, sid = self.applet_sids.popitem()
+            app.disconnect(sid)
+        
+    def __update_applets(self):
+        applets = self.__get_applets()
+        for app in applets:
+            if isinstance(app, DockXApplet):
+                app.update()
+                
+    def __get_applets(self):
+        # Returns a list of all applets on the dock.
+        applets = []
+        if self.position_boxes:
+            for box in self.position_boxes:
+                applets.extend(box)
+        else:
+            applets.extend(self.box)
+        return applets
+            
+
+    def __set_dock_strut(self, x, y, w, h):
+        if not self.get_window():
+            return
+        set_strut = self.globals.settings["dock/behavior"] == "panel"
+        if not set_strut:
+            self.get_window().property_delete("_NET_WM_STRUT")
+            self.get_window().property_delete("_NET_WM_STRUT_PARTIAL")
+            return
+        s = self.get_screen()
+        sw = s.get_width()
+        sh = s.get_height()
+        #mx, my, mw, mh = s.get_monitor_geometry(self.monitor)
+        rect = s.get_monitor_geometry(self.monitor)
+        mx = rect.x; my = rect.y; mw = rect.width; mh = rect.height
+        if self.globals.settings["dock/position"] == "left":
+            strut = [x + w, 0, 0, 0, y, y + h - 1, 0, 0, 0, 0, 0, 0]
+            # Make sure that there's no monitor on the left side of this one.
+            if s.get_monitor_at_point(mx - 5, y + h / 2) != self.monitor:
+                set_strut = False
+        elif self.globals.settings["dock/position"] == "right":
+            strut = [0, sw - x, 0, 0, 0, 0, y, y + h - 1, 0, 0, 0, 0]
+            if s.get_monitor_at_point(mx + mw + 5, y + h / 2) != self.monitor:
+                set_strut = False
+        elif self.globals.settings["dock/position"] == "top":
+            strut = [0, 0, y + h, 0, 0, 0, 0, 0, x, x + w - 1, 0, 0]
+            if s.get_monitor_at_point(x + w / 2, my - 5) != self.monitor:
+                set_strut = False
+        else:
+            strut = [0, 0, 0, sh - y, 0, 0, 0, 0, 0, 0, x, x + w - 1]
+            if s.get_monitor_at_point(x + w / 2, my + mh + 5) != self.monitor:
+                set_strut = False
+
+        # FIXME: property_change to xlib's change_property
+        d = display.Display()
+        wnd = d.create_resource_object('window', self.get_window().get_xid())
+
+        if not set_strut:
+            wnd.delete_property(d.intern_atom("_NET_WM_STRUT"))
+            wmd.delete_property(d.intern_atom("_NET_WM_STRUT_PARTIAL"))
+#            self.get_window().property_delete("_NET_WM_STRUT")
+#            self.get_window().property_delete("_NET_WM_STRUT_PARTIAL")
+            return
+
+        wnd.change_property(d.intern_atom("_NET_WM_STRUT"), 
+                                            d.intern_atom("CARDINAL"), 32, strut[:4], 
+                                            X.PropModeReplace)
+
+        wnd.change_property(d.intern_atom("_NET_WM_STRUT_PARTIAL"), 
+                                            d.intern_atom("CARDIAL"), 32, strut, 
+                                            X.PropModeReplace)
+
+
+#        Gdk.property_change(self.get_window(), "_NET_WM_STRUT", "CARDINAL", 32, 
+#                                    gtk.gtk.gdk.PROP_MODE_REPLACE, strut[:4])  
+#        self.get_window().property_change("_NET_WM_STRUT_PARTIAL", "CARDINAL", 
+#                                    32, gtk.gdk.PROP_MODE_REPLACE, strut)
+            
+    def __get_monitor_and_strut_borders(self):
+        # This function returns the distance from screen edges to
+        # the monitor edges including strut.
+        size = self.globals.settings["dock/size"]
+        rect = self.get_monitor_geometry()
+        mx = rect.x; my = rect.y; mw = rect.width; mh = rect.height
+        #mx, my, mw, mh = self.get_monitor_geometry()
+        sw = self.get_screen().get_width()
+        sh = self.get_screen().get_height()
+        strut = [rect.x, sw - (mx + mw), my,  sh - (my + mh)]
+        d = display.Display()
+        strut_atom = d.get_atom('_NET_WM_STRUT')
+        strut_partial_atom = d.get_atom('_NET_WM_STRUT_PARTIAL')
+        root = d.screen().root
+        windows = root.query_tree()._data['children']
+        for w in windows:
+            try:
+                prop1 = w.get_full_property(strut_partial_atom, 0)
+                prop2 = w.get_full_property(strut_atom, 0)
+            except:
+                continue
+            if prop1 is not None:
+                cl = w.get_wm_class()
+                if cl and cl[0] in ("dockx", "dockbarx_factory"):
+                    continue
+                if self.globals.settings["dock/position"] == "left":
+                    if prop1.value[6] < my + mh and \
+                       prop1.value[7] >= my:
+                        strut[1] = max(strut[1], prop1.value[1])
+                    if prop1.value[8] <= mx + size and \
+                       prop1.value[9] >= mx:
+                        strut[2] = max(strut[2], prop1.value[2])
+                    if prop1.value[10] <= mx + size and \
+                       prop1.value[11] >= mx:
+                        strut[3] = max(strut[3], prop1.value[3])
+                elif self.globals.settings["dock/position"] == "right":
+                    if prop1.value[4] < my + mh and \
+                       prop1.value[5] >= my:
+                        strut[0] = max(strut[0], prop1.value[0])
+                    if prop1.value[8] < mx + mw and \
+                       prop1.value[9] >= mx + mw - size:
+                        strut[2] = max(strut[2], prop1.value[2])
+                    if prop1.value[10] < mx + mw and \
+                       prop1.value[11] >= mx + mw - size:
+                        strut[3] = max(strut[3], prop1.value[3])
+                elif self.globals.settings["dock/position"] == "top":
+                    if prop1.value[4] <= my + size and \
+                       prop1.value[5] >= my:
+                        strut[0] = max(strut[0], prop1.value[0])
+                    if prop1.value[6] <= my + size and \
+                       prop1.value[7] >= my:
+                        strut[1] = max(strut[1], prop1.value[1])
+                    if prop1.value[10] < mx + mw and \
+                       prop1.value[11] >= mx:
+                        strut[3] = max(strut[3], prop1.value[3])
+                else:
+                    if prop1.value[4] < my + mh and \
+                       prop1.value[5] >= my + mh - size:
+                        strut[0] = max(strut[0], prop1.value[0])
+                    if prop1.value[6] < my + mh and \
+                       prop1.value[7] >= my + mh - size:
+                        strut[1] = max(strut[1], prop1.value[1])
+                    if prop1.value[8] < mx + mw and \
+                       prop1.value[9] >= mx:
+                        strut[2] = max(strut[2], prop1.value[2])
+                continue
+            if prop2 is not None:
+                # Hopefully this one is never needed because
+                # it won't work well with dualscreens.
+                cl = w.get_wm_class()
+                if cl and cl[0] in ("dockx", "dockbarx_factory"):
+                    continue
+                for i in range(4):
+                    strut[i] = max(strut[i], prop2.value[i])
+        return strut
+
+    def do_size_allocate(self, allocation):
+        CairoDockX.do_size_allocate(self, allocation)
+        w = allocation.width
+        h = allocation.height
+        if self.globals.settings["dock/mode"] == "centered":
+            rect = self.get_monitor_geometry()
+            mx = rect.x; my = rect.y; mw = rect.width; mh = rect.height
+            if self.globals.settings["dock/position"] == "left":
+                x = mx
+                y = my + mh / 2 - h / 2
+            elif self.globals.settings["dock/position"] == "right":
+                x = mx + mw - w
+                y = my + mh / 2 - h / 2
+            elif self.globals.settings["dock/position"] == "top":
+                x = mx + mw / 2 - w / 2
+                y = my
+            else:
+                x = mx + mw / 2 - w / 2
+                y = my + mh - h
+        else:
+            x = self.old_x
+            y = self.old_y
+        self.move(x, y)
+        if (w, h) != (self.old_width, self.old_height):
+            self.queue_draw()
+            self.old_width, self.old_height = w, h
+        if self.globals.settings["dock/mode"] != "panel":
+            self.__set_dock_strut(x, y, w, h)
+            
+    def show_dock(self):
+        self.show()
+        if self.globals.settings["dock/mode"] != "centered":
+            self.move(self.old_x, self.old_y)
+        if self.autohide_sid is not None:
+            GLib.source_remove(self.autohide_sid)
+        if self.autounhide_sid is not None:
+            GLib.source_remove(self.autounhide_sid)
+            self.autounhide_sid = None
+        self.autohide_sid = GLib.timeout_add(200, self.__hide_check)
+                                                  
+    def hide_dock(self):
+        self.hide()
+        if self.autohide_sid is not None:
+            GLib.source_remove(self.autohide_sid)
+            self.autohide_sid = None
+        if self.autounhide_sid is not None:
+            GLib.source_remove(self.autounhide_sid)
+        display = Gdk.Display.get_default()
+        mx, my, mw, mh = self.get_monitor_geometry()
+        if self.globals.settings["dock/position"] == "left":
+            x1 = x2 = mx
+            y1 = my
+            y2 = my + mh -1
+        elif self.globals.settings["dock/position"] == "right":
+            x1 = x2 = mx + mw - 1
+            y1 = my
+            y2 = my + mh - 1
+        elif self.globals.settings["dock/position"] == "top":
+            x1 = mx
+            x2 = mx + mw - 1
+            y1 = y2 = my
+        else:
+            x1 = mx
+            x2 = mx + mw - 1
+            y1 = y2 = my + mh - 1
+        self.autounhide_sid = GLib.timeout_add(200, self.__unhide_check,
+                                                  display, x1, x2, y1, y2)
+
+    def __unhide_check(self, display, x1, x2, y1, y2):
+        if not self.should_autohide:
+            self.show_dock()
+            return False
+        s, x, y, mod = display.get_pointer()
+        if y >= y1 and y <= y2 and x >= x1 and x <= x2:
+            self.show_dock()
+            return False
+        return True
+
+    def __hide_check(self):
+        if self.globals.shown_popup() is not None or not self.should_autohide:
+            return True
+        pos = self.globals.settings["dock/position"]
+        x, y = self.get_pointer()
+        a = self.get_allocation()
+        if x >= 0 and x < a.width and y >= 0 and y < a.height:
+            return True
+        if (pos == "left" and x == 0) or \
+           (pos == "right" and x == a.width - 1) or \
+           (pos == "top" and y == 0)  or \
+           (pos == "bottom" and y == a.height - 1):
+            return True
+        self.hide_dock()
+        return False
+
+    def add_window(self, window, reset_should_autohide=True):
+        if not self.autohide:
+            return
+        geo_sid = window.connect("geometry-changed",
+                             self.__on_window_geometry_changed)
+        state_sid = window.connect("state-changed",
+                             self.__on_window_state_changed)
+        self.windows[window] = (geo_sid, state_sid)
+        self.__calc_border_distance(window)
+        if self.db_loaded and reset_should_autohide:
+            self.__compute_should_autohide()
+            
+    def remove_window(self, window, reset_should_autohide=True, forced=False):
+        if not self.autohide and not forced:
+            return
+        try:
+            del self.border_distances[window]
+        except KeyError:
+            pass
+        if window in self.windows:
+            sids = self.windows.pop(window)
+            if sids is not None:
+                window.disconnect(sids[0])
+                window.disconnect(sids[1])
+        if reset_should_autohide:
+            self.__compute_should_autohide()
+
+    def __on_window_state_changed(self, wnck_window,changed_mask, new_state):
+        if WNCK_WINDOW_STATE_MINIMIZED & changed_mask:
+            self.__compute_should_autohide()
+        
+    def __on_window_geometry_changed(self, window):
+        if time.time() - self.geometry_time < 0.12 and \
+           window == self.last_geometry_window():
+               # Same window get multiple calls when the geometry changes
+               # In that case, just return.
+               return
+        self.last_geometry_window = weakref.ref(window)
+        self.geometry_time = time.time()
+        GLib.timeout_add(120, self.__calc_border_distance, window, True)
+
+    def __on_active_window_changed(self, screen, previous_active_window):
+        if self.globals.settings["dock/behavior"] == "dodge active window":
+            self.__compute_should_autohide()
+        
+
+    def __calc_border_distance(self, window, reset_should_autohide=False):
+        bd = {"left": 1000, "right": 1000, "top": 1000, "bottom": 1000}
+        x, y, w, h = window.get_geometry()
+        gdk_screen = Gdk.Screen.get_default()
+        monitor = gdk_screen.get_monitor_at_point(x + (w / 2), y  + (h / 2))
+        if monitor != self.monitor:
+            return
+        mx, my, mw, mh = self.get_monitor_geometry()
+        if y < my + mh and y + h > my:
+            if x + w > mx:
+                bd["left"] = x - mx
+            if x < mx + mw:
+                bd["right"] = mx + mw - x - w
+        if x < mx + mw and x + w > mx:
+            if y + h > my:
+                bd["top"] = y - my
+            if y < my + mh:
+                bd["bottom"] = my + mh - y - h
+        self.border_distances[window] = bd
+        if reset_should_autohide:
+            self.__compute_should_autohide()
+
+    def __compute_should_autohide(self):
+        pos = self.globals.settings["dock/position"]
+        size = self.globals.settings["dock/size"]
+        beh = self.globals.settings["dock/behavior"]
+        if beh == "always autohide":
+            self.should_autohide = True
+            return True
+        self.should_autohide = False
+        active_workspace = self.screen.get_active_workspace()
+        for window in self.dockbar.get_windows():
+            if window.is_minimized():
+                continue
+            if beh == "dodge active window" and not window.is_active():
+                continue
+            if window.get_workspace() != active_workspace:
+                continue
+            border_distance = self.border_distances.get(window)
+            if border_distance is None:
+                continue
+            if border_distance[pos] < size:
+                self.should_autohide = True
+                break
+        return self.should_autohide
+
+    def __on_dock_size_changed(self, *args):
+        centered = self.globals.settings["dock/mode"] == "centered"
+        cornered = self.globals.settings["dock/mode"] == "corner"
+        ed = self.globals.settings["dock/end_decorations"]
+        self.padding1.compute_size(centered or ed)
+        self.padding2.compute_size(centered or cornered or ed)
+        self.position_dock()
+        self.queue_draw()
+        
+    def __on_mode_changed(self, *args):
+        self.position_dock(rebuild=True)
+        self.queue_draw()
+
+    def __on_position_changed(self, *args):
+        self.position_dock()
+        self.queue_draw()
+        self.__compute_should_autohide()
+        self.compute_padding()
+        if self.autohide:
+            self.hide_dock()
+
+    def __on_overlap_changed(self, *args):
+        a = self.get_allocation()
+        x, y = self.get_position()
+        self.__set_dock_strut(x, y, a.width, a.height)
+
+    def __on_offset_changed(self, *args):
+        self.position_dock()
+
+    def __on_behavior_changed(self, *args):
+        if self.globals.settings["dock/behavior"] in ("panel", "standard"):
+            if self.autohide:
+                self.autohide = False
+                if self.autohide_sid is not None:
+                    GLib.source_remove(self.autohide_sid)
+                    self.autohide_sid = None
+                if self.autounhide_sid is not None:
+                    GLib.source_remove(self.autounhide_sid)
+                    self.autounhide_sid = None
+                self.show()
+                for window in self.dockbar.get_windows():
+                    self.remove_window(window,
+                                       reset_should_autohide=False,
+                                       forced=True)
+        else:
+            if not self.autohide:
+                self.autohide = True
+                self.hide_dock()
+                for window in self.dockbar.get_windows():
+                    self.add_window(window, reset_should_autohide=False)
+            self.__compute_should_autohide()
+        self.position_dock()
+        if self.globals.settings["dock/mode"] in ("centered", "corner"):
+            a = self.get_allocation()
+            x, y = self.get_position()
+            self.__set_dock_strut(x, y, a.width, a.height)
+
+    def __on_dock_theme_reloaded(self, *args):
+        self.compute_padding()
+        self.position_dock(rebuild=True)
+        self.queue_draw()
+
+    def __on_end_decorations_changed(self, *args):
+        self.compute_padding()
+        self.position_dock(rebuild=True)
+        self.queue_draw()
+
+    def __on_screen_size_changed(self, *args):
+        self.position_dock()
+        if self.globals.settings["dock/mode"] in ("centered", "corner"):
+            a = self.get_allocation()
+            x, y = self.get_position()
+            self.__set_dock_strut(x, y, a.width, a.height)
+        if self.autohide:
+            self.__compute_should_autohide()
+        self.calculate_dockbar_max_size()
+        
+    def __on_applet_size_allocate(self, widget, allocate):
+        self.calculate_dockbar_max_size()
+            
+    def calculate_dockbar_max_size(self):
+        centered = self.globals.settings["dock/mode"] == "centered"
+        pos = self.globals.settings["dock/position"]
+        o = self.globals.settings["dock/offset"]
+#        (mx, my, mwidth, mheight) = self.get_monitor_geometry()
+        rect = self.get_monitor_geometry()
+        mx = rect.x; my = rect.y; mwidth = rect.width; mheight = rect.height
+        # Get the size of all no expanding applets
+        asize = 0
+        applets = self.__get_applets()
+        if self.position_boxes:
+            asizes = [0 ,0, 0]
+            for i in (0, 1, 2):
+                for app in self.position_boxes[i]:
+                    if isinstance(app, DockXApplet) and not app.get_expand():
+                        asizes[i] = asizes[i] + app.get_applet_size()
+                    elif app == self.dockbar.get_container():
+                        dockbar_in_box = i
+        else:
+            for app in self.box:
+                if isinstance(app, DockXApplet) and not app.get_expand():
+                    asize = asize + app.get_applet_size()
+        # Get monitor size and padding size
+        if pos in ("top", "bottom"):
+            msize = mwidth
+            p1size = self.padding1.get_allocation().width
+            p2size = self.padding2.get_allocation().width
+        else:
+            msize = mheight
+            p1size = self.padding1.get_allocation().height
+            p2size = self.padding2.get_allocation().height
+        # Subtract the sizes from monitor size
+        if self.position_boxes:
+            if dockbar_in_box == 0:
+                # Dockbar is in the first box and can only use half the
+                # screen size minus apps and first padding
+                asize = asizes[0] + asizes[1] / 2
+                max_size = msize / 2 - p1size - asize
+            elif dockbar_in_box == 1:
+                # Dockbar is in the centered box
+                asize = asizes[1] + 2 * max(asizes[0], asizes[2])
+                max_size = msize - p1size - p2size - asize
+            elif dockbar_in_box == 2:
+                # Dockbar is in the first box and can only use half the
+                # screen size minus apps and first padding.
+                asize = asizes[2] + asizes[1] / 2
+                max_size = msize / 2 - p1size - asize
+        else:
+            max_size = msize - p1size - p2size - asize
+        # And subtract offset unless the dock is centered.
+        if not centered:
+            max_size = max_size - o
+        if max_size != self.dockbar_max_size:
+            self.dockbar_max_size = max_size
+            self.dockbar.set_max_size(max_size)
+                
+    def __calulate_db_max_size_on_realized(self):
+        # Wait while gtk events are pending.
+        while Gtk.events_pending():
+                    Gtk.main_iteration()
+        self.calculate_dockbar_max_size()
+
+    def get_monitor_geometry(self):
+        screen = self.get_screen()
+        if screen is None:
+            screen = Gdk.Screen.get_default()
+        return screen.get_monitor_geometry(self.monitor)
+
+    def reload(self, *args):
+        self.db_loaded = False
+        self.dockbar.reload(tell_parent=False)
+        self.db_loaded = True
+        self.applets.find_applets()
+        self.theme.reload()
+        self.position_dock(rebuild=True)
+        if self.autohide:
+            self.__compute_should_autohide()
+
+    def do_destroy(self, *args):
+        CairoDockX.do_destroy(self)
+        Gtk.main_quit()
+        
+    #### Menu stuff
+    def create_popup_menu_ex(self, event):
+        POPUP_INFO = """
+            <ui>
+                <popup name='PopupMenu'>
+                    <menuitem action='gtk-properties'/>
+                    <menuitem action='gtk-refresh'/>
+                    <menuitem action='gtk-close'/>
+                </popup>
+            </ui>
+        """
+        uimanager = Gtk.UIManager()
+        uimanager.add_ui_from_string(POPUP_INFO)
+        accgr = uimanager.get_accel_group()
+        self.add_accel_group(accgr)
+
+        menu = Gtk.Menu()
+        action_group = Gtk.ActionGroup("popup_menu")
+        action_group.add_actions([
+            ("gtk-properties", None, _("_Properties"), None, "Open Properties",
+            self.__menu_preferences_selected),
+            ("gtk-refresh", None, "_Reload", None, "Refresh Dock Bar",
+            self.__menu_reload_selected),
+            ("gtk-close", None, _("_Close"), None, "Close Dock Bar",
+            self.__menu_close_selected)
+        ])
+        uimanager.insert_action_group(action_group)
+        popup = uimanager.get_widget("/PopupMenu")
+        popup.popup(None, None, None, None, event.button.button, event.time)
+
+    def create_popup_menu(self, event):
+        #Create popup menu
+        menu = Gtk.Menu()
+        menu.connect("selection-done", self.__menu_closed)
+        preference_item = Gtk.MenuItem("_Preference")
+        menu.append(preference_it/Pr/Preeem)
+        preference_item.connect("activate",
+                                self.__menu_preferences_selected)
+        preference_item.show()
+        reload_item = Gtk.ImageMenuItem("gtk-refresh", "Reload")
+        menu.append(reload_item)
+        reload_item.connect("activate", self.__menu_reload_selected)
+        reload_item.show()
+        about_item = Gtk.ImageMenuItem("gtk-about", "About Item")
+        menu.append(about_item)
+        about_item.connect("activate",
+                           lambda e: dockbarx.dockbar.AboutDialog())
+        about_item.show()
+        close_item = Gtk.ImageMenuItem("gtk-close", "Close")
+        menu.append(close_item)
+        close_item.connect("activate", self.__menu_close_selected)
+        close_item.show()
+        menu.popup(None, None, None, None, event.button.button, event.time)
+        self.globals.gtkmenu_showing = True
+        
+    def __menu_closed(self, menushell):
+        self.globals.gtkmenu_showing = False
+        menushell.destroy()
+
+    def __menu_close_selected(self, *args):
+        self.destroy()
+        
+    # FIXME by jeong: change path
+    def __menu_preferences_selected(self, *args):
+        os.spawnlp(os.P_NOWAIT,"/home/user/dev/dockbar/new_py_gtk/dockbarx-0.92+grm1u3/dbx_preference",
+                   "/home/user/dev/dockbar/new_py_gtk/dockbarx-0.92+grm1u3/dbx_preference")
+        #os.spawnlp(os.P_NOWAIT, "/usr/bin/pyg_dbx_preference",
+        #                                            "/usr/bin/pyg_dbx_preference")
+            
+    def __menu_reload_selected(self, *args):
+        self.reload()
+        
+        
+
+class EventPadding(Gtk.EventBox):
+    __gsignals__ = {"button-release-event": "override",
+                    "drag-motion" : "override",
+                    "drag-leave" : "override",
+                    "drag-drop" : "override",
+                    "drag-data-received" : "override"}
+    def __init__(self, dock):
+        Gtk.EventBox.__init__(self)
+        self.globals = Globals()
+        self.dock_r = weakref.ref(dock)
+        self.set_visible_window(False)
+        self.set_size_request(6, 6)
+
+        self.position = None
+        self.drag_dest_set(0, [], 0)
+        self.drag_entered = False
+
+    def define_position(self, position):
+        self.position = position
+
+    def compute_size(self, corner=True):
+        dock = self.dock_r()
+        use_bar2 = int(dock.theme.get("use_bar2", False))
+        if use_bar2:
+            b2_s = int(dock.theme.get("b2_side_padding", 6))
+        else:
+            b2_s = 0
+        b1_s  = int(dock.theme.get("side_padding", 6))
+        if corner:
+            size = self.globals.settings["dock/size"]
+            rel_size = float(dock.theme.get("rel_size", 100))
+            slope = -(float(dock.theme.get("slope", 90)) - 90) / 180 * pi
+            b1_s += int(abs(tan(slope)) * int(size*rel_size/100))
+            if use_bar2:
+                rel_size = float(dock.theme.get("bar2_rel_size", 100))
+                slope = -(float(dock.theme.get("bar2_slope", 90)) - 90)
+                slope = slope / 180 * pi
+                b2_s += int(abs(tan(slope)) * int(size*rel_size/100))
+        s = max(b1_s, b2_s)
+        pos = self.globals.settings["dock/position"]
+        if pos in ("left", "right"):
+            self.set_size_request(-1, s)
+        else:
+            self.set_size_request(s, -1)
+
+    def do_button_release_event(self, event):
+        if event.button != 3:
+            return
+        self.dock_r().create_popup_menu(event)
+
+    def do_drag_drop(self, drag_context, x, y, t):
+        if "text/groupbutton_name" in drag_context.targets:
+            self.drag_get_data(drag_context, "text/groupbutton_name", t)
+            drag_context.finish(True, False, t)
+        elif "text/uri-list" in drag_context.targets:
+            self.drag_get_data(drag_context, "text/uri-list", t)
+            drag_context.finish(True, False, t)
+        else:
+            drag_context.finish(False, False, t)
+        return True
+
+    def do_drag_data_received(self, context, x, y, selection, targetType, t):
+        if not self.position in ("before", "after"):
+            return
+        if selection.target == "text/groupbutton_name":
+            self.dock_r().dockbar.groupbutton_moved(selection.data,
+                                                    self.position)
+        elif selection.target == "text/uri-list":
+            if ".desktop" in selection.data:
+                # .desktop file! This is a potential launcher.
+                #remove "file://" and "/n" from the URI
+                # Todo: What if the uri doesn't start with "file://"?
+                path = selection.data[7:-2]
+                path = path.replace("%20"," ")
+                self.dock_r().dockbar.launcher_dropped(path, self.position)
+
+    def do_drag_motion(self, drag_context, x, y, t):
+        if not self.position in ("before", "after"):
+            return True
+        if not self.drag_entered:
+            self.do_drag_enter(drag_context, x, y, t)
+        if "text/groupbutton_name" in drag_context.targets:
+            drag_context.drag_status(gtk.gdk.ACTION_MOVE, t)
+        elif "text/uri-list" in drag_context.targets:
+            drag_context.drag_status(gtk.gdk.ACTION_COPY, t)
+        else:
+            drag_context.drag_status(gtk.gdk.ACTION_PRIVATE, t)
+        return True
+
+    def do_drag_enter(self, drag_context, x, y, t):
+        self.drag_entered = True
+
+    def do_drag_leave(self, drag_context, t):
+        self.drag_entered = False
+
+class DockXDBus(dbus.service.Object):
+
+    def __init__(self, dockx):
+        self.bus_name = "org.dockbar.DockX"
+        if "org.dockbar.DockX" in dbus.SessionBus().list_names():
+            for n in range(1, 100):
+                name = "org.dockbar.DockX%s" % n
+                if not name in dbus.SessionBus().list_names():
+                    self.bus_name = name
+                    break
+        self.dockx_r = weakref.ref(dockx)
+        bus_name = dbus.service.BusName(self.bus_name,
+                                        bus = dbus.SessionBus())
+        dbus.service.Object.__init__(self, bus_name,
+                                     "/org/dockbar/DockX")
+
+    @dbus.service.method(dbus_interface="org.dockbar.DockX",
+                         in_signature="", out_signature="",)
+    def Reload(self):
+        self.dockx_r().reload()
+
+    @dbus.service.method(dbus_interface="org.dockbar.DockX",
+                         in_signature="", out_signature="s",)
+    def GetPosition(self):
+        return self.dockx_r().globals.settings["dock/position"]
+
+    @dbus.service.method(dbus_interface="org.dockbar.DockX",
+                         in_signature="", out_signature="i",)
+    def GetFullSize(self):
+        dockx = self.dockx_r()
+        rel_size = float(dockx.theme.get("rel_size", 100))
+        size = dockx.globals.settings["dock/size"]
+        return max(size, int(size * rel_size / 100))
+
+    @dbus.service.method(dbus_interface="org.dockbar.DockX",
+                         in_signature="", out_signature="i",)
+    def GetSize(self):
+        return self.dockx_r().globals.settings["dock/size"]
+
+
+    @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE,
+                         in_signature='ss', out_signature='v')
+    def Get(self, interface_name, property_name):
+        return self.GetAll(interface_name)[property_name]
+
+    @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE,
+                         in_signature='s', out_signature='a{sv}')
+    def GetAll(self, interface_name):
+        if interface_name == "org.dockbar.DockX":
+            return {}
+        else:
+            raise dbus.exceptions.DBusException(
+                'com.example.UnknownInterface',
+                'The Foo object does not implement the %s interface'
+                    % interface_name)
+
+    @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE,
+                         in_signature='ssv', out_signature='')
+    def Set(self, interface_name, property_name, property_value):
+        pass
+
+    @dbus.service.signal(dbus_interface=dbus.PROPERTIES_IFACE,
+                         signature='sa{sv}as')
+    def PropertiesChanged(self, interface_name, changed_properties,
+                          invalidated_properties):
+        pass
+
+
+monitor = 0
+if "--monitor" in sys.argv:
+    i = sys.argv.index("--monitor") + 1
+    try:
+        monitor = int(sys.argv[i])
+    except:
+        raise
+dockx = DockX(monitor)
+del monitor
+Gtk.main()
+        
+

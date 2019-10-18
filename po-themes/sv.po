@@ -1,0 +1,65 @@
+# Tranlation template for DockbarX.
+# Copyright (C) 2010 Matias Sars
+# This file is distributed under the same GPL and BSD.
+msgid ""
+msgstr ""
+"Project-Id-Version: dockbarx-themes\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2010-06-09 13:23+0300\n"
+"PO-Revision-Date: 2012-03-09 16:26+0000\n"
+"Last-Translator: Rikard Edgren <Unknown>\n"
+"Language-Team: Launchpad Swedish Translators <lp-l10n-"
+"sv@lists.launchpad.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2012-10-20 14:31+0000\n"
+"X-Generator: Launchpad (build 16165)\n"
+"X-Poedit-Language: Swedish\n"
+
+msgid "Window list background"
+msgstr "Fönsterlistans bakgrund"
+
+msgid "Normal text"
+msgstr "Normal text"
+
+msgid "Active window text"
+msgstr "Text för aktivt fönster"
+
+msgid "Active window"
+msgstr "Aktivt fönster"
+
+msgid "Minimized window text"
+msgstr "Text för minimierat fönster"
+
+msgid "Active color"
+msgstr "Aktiv färg"
+
+msgid "Not used"
+msgstr "Används inte"
+
+msgid "Active"
+msgstr "Aktiv"
+
+msgid "Launching color"
+msgstr "Färg vid programstart"
+
+msgid "Attention color"
+msgstr "Färg för uppmärksamhet"
+
+msgid "Minimized color"
+msgstr "Färg vid minimering"
+
+msgid "Active glow"
+msgstr "Aktiv glöd"
+
+msgid "Button color"
+msgstr "Knappfärg"
+
+# Theme unite_v
+msgid "Active + indicator color"
+msgstr "Aktiv + indikatorfärg"
+
+# Theme Dock[_v]
+msgid "Active + dots color"
+msgstr "Aktiv + punktfärg"

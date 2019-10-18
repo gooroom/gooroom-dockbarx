@@ -1,0 +1,63 @@
+# Italian translation for dockbar
+# Copyright (c) 2010 Rosetta Contributors and Canonical Ltd 2010
+# This file is distributed under the same license as the dockbar package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dockbar\n"
+"Report-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2010-06-09 13:23+0300\n"
+"PO-Revision-Date: 2011-09-21 19:54+0000\n"
+"Last-Translator: simone.sandri <lexluxsox@hotmail.it>\n"
+"Language-Team: Italian <it@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2012-10-20 14:31+0000\n"
+"X-Generator: Launchpad (build 16165)\n"
+
+msgid "Window list background"
+msgstr "Sfondo lista finestre"
+
+msgid "Normal text"
+msgstr "Testo normale"
+
+msgid "Active window text"
+msgstr "Testo della finestra attiva"
+
+msgid "Active window"
+msgstr "Finestra attiva"
+
+msgid "Minimized window text"
+msgstr "Testo della finestra minimizzata"
+
+msgid "Active color"
+msgstr "Colore attivo"
+
+msgid "Not used"
+msgstr "Non usato"
+
+msgid "Active"
+msgstr "Attiva"
+
+msgid "Launching color"
+msgstr "Colore al lancio"
+
+msgid "Attention color"
+msgstr "Colore ad una richiesta di attenzione"
+
+msgid "Minimized color"
+msgstr "Colore dell'applicazione minimizzata"
+
+msgid "Active glow"
+msgstr "Bagliore del pulsante attivo"
+
+msgid "Button color"
+msgstr "Colore del pulsante"
+
+msgid "Active + indicator color"
+msgstr "Colore del pulsante attivo (con indicatore)"
+
+msgid "Active + dots color"
+msgstr "Colore del pulsante attivo (con punto)"

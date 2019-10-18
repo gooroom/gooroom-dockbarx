@@ -1,0 +1,628 @@
+Changelog:
+0.92
+- DockbarX can now update the window list so that the last used window always is first in the list. (This behavior is now used by default but can be changed in preferences.)
+- Fixed issue #5: Icons in Dockbarx disappear after changing workspace.
+- Fixed crash at startup if "Ignore windows on other monitors" is checked
+- Fixed crash because of calls to the deprecated PIL function tostring().
+- Other small fixes.
+
+0.91.4
+- Fixed issue #4 (bug): DockbarX froze when minimizing applications if certain themes were used.
+
+0.91.3
+- Fixed bug that broke DockX in 0.91.2
+
+0.91.2
+- Updated DockbarX with need changes to fix a reloading bug in the xfce plug.
+
+0.91.1
+- Fix for Bug #1331820 (lp): DockX shows arrows instead of adjusting width to show all icons.
+
+0.91
+- DockbarX should now be able to handle situations where there are too many open applications to show them all in dockbarx.
+- Battery applet added for DockX.
+- Bug #652386 and Bug #1120940: DockbarX no longer freeze when there are more windows open than can fit into the window list.
+- Bug #1314868: A graphical glitch fixed. Icons no longer have junk pixels around them.
+- Code cleanups and possibly also some speedups.
+- Other small fixes.
+
+0.90.3
+Bug fixes:
+- Volume-control was not installed with the rest of the applets.
+- A small bug stopped volume-controll from starting on a fresh setup.
+
+0.90.2
+Bug fixes:
+- Appindicators: indicator-application-service wasn't started with the applet in ubuntu 12.10 since the path to the file differs from previous ubuntu releases.
+- Appindicators: older versions of indicator-application-service are now supported. Appindicator applet works in ubuntu 11.10 (and perhaps eariler versions as well).
+
+
+0.90.1
+Features:
+- Appindicator menus pop up next to the dock instead of at mouse pointer. Appindicator icon size is increased to 18.
+- Added a launcher for DockX.
+
+Bug fixes:
+- Bug #970737: DockX background disappeared on mouse over with cairo 1.12.
+- Bug #1066875: Visual glitches in right click menu for ubuntu 12.10 (compiz bug).
+- Namebar themes were installed in the wrong folder which made the applet crash.
+
+Translations are updated as well.
+
+
+0.90 - Jump in version number to signal that a 1.0 version is closing in.
+Features:
+- The stand alone dock supports applets now. See list of applets below.
+- The selection of themes that comes with DockbarX is renewed. All themes should work both horizontal and vertical.
+- The appearence tab in dockbarx preferences has gotten a little face lift and all themes now comes with a info text that is shown when pushing the info button in appearence tab.
+- The width of window titles in window list can be specified now if no previews are used.
+
+Theme making:
+- Rotate command to rotate pixmaps and icons. The composite command can also rotate the foreground pixmap by using the option angle.
+- The if command has gotten a new option orient so that themes can look differently depending on the docks position (left, right, up or down).
+- To simplify things different values for different orientations can also be set by usining sets. More info on this will be added later. For now read theme config to see examples (DMD glass is a good choise).
+- Offsets and sizes can be set with in percent of the button size instead of only in absolut pixels. Combinations can also be used like "-3px-15%".
+- Aspect ratios can be set separately when themes are used vertically by setting the option aspect_ratio_v in button_pixmap command.
+
+Applets:
+- DockbarX (duh)
+- Cardapio: An alternative gnome menu, launcher and much more. Cardapio has to be installed for it to work.
+- Clock: Show time and if you want the date. The looks is changeable by changing fonts or using custom gnome clock applet strings (google it). On clicks orage will be launched if installed. If you want to launch something else change the gconf key /apps/dockbarx/applets/clock/command.
+- Appindicator: Shows appindicators. Indicator-application needs to be installed for it to work.
+- Volume control: Controls volume. Ported from AWN.
+- Namebar/window titile/windowbuttons: Shows window title and/or close/maximize/minimize buttons on the panel to save screen space.
+
+And some bug fixes as well.
+
+
+0.48
+Features:
+- More intuitive placement of drag-dropped launchers, they don't always end up on the right side of the button you drop them on anymore.
+
+Bug fixes:
+- Workaround for the Compiz preview bug. Previews should work more or less as they are supposed to even if you use Compiz 0.9 now (even for minimized windows if you activate "keep previews of minimized windows" in workarounds plugin).
+- Previews are resized correctly on window geometry changes.
+- The dock doesn't loose the ability to resize itself anymore every time the compositing window manager is restarted.
+- Bug #837711: DockX repositioned itself when unhiding.
+- Bug #854551: DockbarX failed to recognize windows moved to another workspace.
+- Bug #854561: DockbarX fails to show the selected window when using drag and drop.
+
+0.47
+Features
+- Window list styles
+The window list (and the close button) is themeable now. You can select different styles for the window list from appearence tab. The styles are independent parts of the themes. They exist in .dockbarx/themes/popup_styles or /usr/share/dockbarx/themes/popup_styles. They are .tar.gz files and should contain one style file with all the settings  and optionally one background.png picture. Making styles should be very easy compared to making themes. Look inside any of the styles that comes with DockbarX, the style file is heavily commented. Themes can set which style they want to use as default and the default colors of the window list is still set from the theme.
+- Window list look has changed more besides the styles. Active and urgent windows are now highlighted with background colors instead of simply changing fonts.
+
+- Stand alone dock themes
+The dock is themable now as well. Writing dock themes is similar to writing window list styles. The files is located at ~/.dockbarx/themes/dock/ or /usr/share/dockbarx/themes/dock/. Look inside one of the themes for more information on how to make one, it shouldn't be too hard.
+
+Bug fixes:
+- Bug #833335 and #834804: The awn applet didn't remove icons on windows where closed. (Sorry AWN-using-people for the long wait for this fix.)
+- Lots of small bugfixes for the dock. The dock is still a little bit buggy so please bug report anything and there will be a bug fix release soon.
+
+0.46.1
+Bug Fixes:
+- Bug #809080: In the dock application buttons were not removed when windows were closed when the behaviors "panel" or "standard" were used.
+- Removed an old workround for OpenOffice/LibreOffice recent files that flooded the list with wrong entries.
+
+0.46
+Features:
+- Unity progress bars and counters (badges) are supported now as well as dynamic quicklists and urgent signals.
+- Dockmanager progress bars and urgent signals are supported now. The badges are rewritten and have a new improved look.
+- The mouse cursor is changed to the wait cursor when a program is launched from dockbarx.
+
+The Dock:
+- The dock can be set to dodge windows or to dodge the active window. See the behavior option in dock tab of preference.
+- The dock tab of preference are now shown only if the dock is running when the preference window is opened. Hopefully this will reduce confusion for people who hasn't used the preference window of DockbarX before.
+
+AWN applet:
+- DockbarX AWN applet can make AWN dodge windows or dodge the active window since avoid windows and intellihide of AWN only works when the taskbar is used. This can be set from the new AWN tab in Dockbarx preference.
+- When AWN is set to autohide, the autohide is inhibited while a DockbarX window list is howered.
+- The new AWN tab in preference is only shown if the DockbarX awn applet is running when when preference window is opened. Hopefully this will reduce confusion for people who hasn't used the preference window of DockbarX before.
+
+Themes:
+- In agreement with the creator Izobalax, the license for the gaia theme is changed to CC 3.0 BY-SA so that it can be included in the official debian package.
+
+Bug Fixes:
+- Related files didn't work for applications with more than one mimetype. Hopefully the related files feature will be more useful now when this bug is fixed!
+- Bug #806990: DockbarX (the dock and the awn applet) crashed when closing Libreoffice Calc.
+- Bug #779564: DockbarX gave all windows opacity 0 under some circumstances.
+- Bug #809080: Closed apps were shown as running in the dock when not using autohide.
+
+
+0.45
+Features:
+- Autohide option for the dock.
+
+Bug Fixes:
+- Quicklists no longer shows the menu items in random order.
+- A few small bugs that caused either weird behavior or chrashes fixed. (Bug #801580, #801361, #743749, #784307 and others)
+
+0.44
+Features:
+- DockbarX can run as a stand alone dock now. It is very basic and isn't meant to be an alround dock. It's meant to be used together with gnome-shell, wing-panel or other similar set-ups. For now the dock doesn't even have features autohide but it's light-weight compared to running AWN with DockbarX and the dock can avoid overlapping with other panels (unless you use compiz 0.9.x or gnome-shell) and it should behave correctly even with multiple monitors.
+- Improved keyboard shortcut handling. Groups or windows are not selected until the modkey (eg. super key) is released.
+- Number shortcuts similar to Unity's number shortcuts (but it handles multiple windows of a group in a better way than unity does IMHO). Use super+1 to select the first group, super+2 for the second and so on. (Opposed to unity, the number of the groups does not show when pressing the super key, you have to count for yourself.)
+- Locked lists is another attempt to solve DockbarX Achilles heel: switching between windows in the same group is feels too slow when using programs like gimp. Locked lists offers a one click switch solution as long as you are prepared to sacrifice some screen real-estate. By selecting "Use locked list" from the group menu of a group with more than one window, you'll get a window list that stays open indefinitely. A mini panel for windows of that group, if you like.
+- DockbarX supports Unity's quicklists (the static ones).
+
+Bug Fixes:
+Large parts of the code has been rewritten since 0.43 so many bugs has been fixed unknowingly and some new has bugs has probaly appeared instead. Some important bug fixes are:
+- Bug #540950: The long lasting bug where DockbarX crashes on login is probably fixed now.
+- Bug #688442: Popup windows appearing on the wrong monitor in multi-monitor set-ups should be fixed as well. 
+- Compiz scale and swith actions works compiz 0.9 thanks to a patch by BlackDex
+
+
+0.43
+Features:
+- Media buttons. All music players that shows up in ubuntus sound menu (in other words mediaplayers that uses mpris2 - that includes Spotify Linux Preview that doesn't show up in ubuntus sound menu) has play/pause, previous and next buttons. You can disable them from preference window. 
+- DockbarX now supports helpers via DockManager. You have to install DockManager and enable it from dockbarx preference window before you can use it.
+- Prism applications are separated from each other instead of being grouped together now.
+- Small visual changes to window list and group menu. The look when using DockbarX without compositing is imporved a bit.
+- DockbarX uses its own log now. When reporting bugs, include the file ~/.dockbarx/log/dockbarx.log (or any other of the numbered log files in that directory depending on how many times you restarted dockbarx since the bug last occurred). I hope this will help us catch a lot of small annoying bugs.
+
+Bug Fixes:
+- Bug 694866: Windows were reported as Needing attention while they didn't anymore.
+- Previews didn't move when windows were closed and were left outside of the window list.
+- DockbarX opened wrong file you had multiple files with the same name in recent or most used menu.
+
+Other changes:
+- The .py is removed from the files dockbarx_factory and dbx_preference. This is done because Debian rules says you shouldn't use file name extensions in /usr/bin.
+
+0.42.1
+End user features:
+- You can now choose if you want the close button on the window items or not.
+Bug fixes:
+- Close and Close all in group menu didn't work. 
+- A couple of other small bugs.
+
+0.42
+End user features:
+- It's now possible to scroll through windows (by using mouse or keyboard shortcuts) without raising all of them.
+- Opacify now fades in and out.
+- If the previews takes up too much space to fit the screen, a list without previews will be shown instead.
+- The size of previews are now set in such a way that the window is shrunk until it fits a in box with the same size aspect ratio as the monitor (the size you set from preference window is the height of this box). Previously it was fitted into a square (size*size). This makes the height of the previews more even.
+- Vertical panels now stacks the previews vertically. The placement of the window list is set according to the golden ratio instead of aligning the top of the button and the window list.
+- For those of you who doesn't like the new menu: The old gtk menu is back and you can choose to use it from preference window.  
+
+Bug fixes:
+- Bug #688953: & and other symbols in window titles made the titles in the window list unreadable.
+- Bug #690731: With vertical panels the window lists were partly outside the screen when the group button was near the bottom of the screen.
+
+0.41
+End user features:
+- New looks for window list and menu!
+- Close button on window items.
+- A few new languages. (I forgot to add them to 0.40, sorry)
+
+Bug fixes:
+- Visual errors in previews shouldn't happen as often anymore.
+- A couple of bugs that caused DockbarX to show up empty should be fixed now.
+
+
+0.40
+End user features:
+- The default theme has changed. The new default theme DBX is made by BigRZA. It's made to look good with Radiance and Ambiance. (The old default theme is still included under the name Old.)
+- Another theme by BigRZA, Sunny Colors is also included, simply because its a great looking theme.
+- The theme Human bar is removed since it was pretty much an older version of the new default theme. 
+- Number of entries in recent and most used menus are increased to eight (for real this time).
+- A few new languages and updates to translations. Big thanks to all translators!
+
+Bug fixes:
+- DockbarX crashed if a launcher without a command line had been added.
+- Bug #505395, bug #661819 and bug #669711: Programs do now disappear from taskbar when they are minimized to tray.
+- A bug caused Dockbarx to pick a custom theme instead of the default theme if the by user chosen theme is missing or corrupt (a random theme is supposed to be picked only if the default theme as well is missing or corrupt).
+
+
+x.0.39.8 (codename 0.40 rc)
+End user features:
+- The tooltip for pinned programs with no open windows shows name and description now, just as normal gnome launchers do.
+- The width of the window list frame is slightly smaller.
+
+Bug fixes:
+- Workaround for bug #504536: An delay is added so that the order of windows isn't screwed up when multiple windows are selected (You can deactivate the workaround from the advanced tab if you don't need it.)
+- Double click group button actions works again.
+- More programs are pinnable (wine and kde programs specifically).
+- Bug #620771: (Some?) mono applications didn't show in DockbarX.
+- In some cases DockbarX chose the wrong language.
+- The drop point marker didn't show when you added or moved group buttons through drag and drop.
+- DockbarX closed the window list when you tried to move the mouse to it during drag and drop.
+- Bug #642370: Preference Dialog crashed in some situations.
+- Bug #619567: Previews could end up partially on the other screen when dual monitors were used.
+- Bug #652382: The terminology 'popup window' and 'window button' is bad, now dockbarx uses 'window list' and 'window item'.
+
+Theme makers:
+- It's now possible to use icons that are bigger than the button size. Simply use a positive number in the size attribute of get_icon.
+
+
+x.0.39.7
+End user features:
+- Multiple monitor support: Option to only show windows that is on the current monitor (see advanced tab in preference).
+- Popups for group buttons without open windows is not shown anymore, instead there is an option in preference dialog to show tooltips for group buttons without windows.
+- The group button menu pops up next to the group button instead of poping up at the mouse pointer.
+- DockbarX might be slightly faster and use a little bit less memory in certain situations.
+
+Changes to dockbarx behavior - after ideas from a patch by Domen Tabernik (skokec):
+- Popup windows closes when you click outside them or after a delay (600 ms).
+- A shorter delay is used when a popup window is open and you move the mouse to another group button to open a new popup window. The delay can be set from the preference dialog.
+- Popup windows are closed when a group button action is executed (exceptions are 'show popup' and 'select next/previous window').
+- Popup windows can be closed when a window button is clicked. You can set the option from the window button tab in the preference dialog.
+- The minimize target (the area a window minimizes to) is now always the group button.
+
+Theme makers:
+- New if type option: 'mouse_button_down'. The code will be executed when a window button is pressed with left mouse button.
+
+Bug fixes:
+- Dockbarx crashed on upstart if it couldn't find a launcher.
+- Error handling added to circumvent a bug in gettext caused by some bad translation files in nautilus elementary (or at least that's what I guess). Should stop Nautilus from not showing up in Dockbarx.
+- If a folder in the home with the same name as a launcher executable the folder was opened instead when trying to launch the program (eg. a ~/firefox folder would be opened instead of Firefox, when trying to launch Firefox from dockbarx).
+- the popup window wasn't always moved after it was resized, which caused the popup window to overlap the group button.
+- You couldn't edit a launcher if it didn't have an identifier.
+- The popup stopped working after if you changed an identifier.
+- Some small bugs stopped global keyboard action 'select next group' and 'select previous group' and group button action 'minimize all other groups' from working.
+- Opacify group works again.
+- DockbarX is now better at handling false mouse leave and mouse enter events for group buttons.
+
+
+x.0.39.6-1
+Bug fixes:
+- Bug #607132: DockBarX fails to start in Ubuntu Karmic.
+- Right clicking on group buttons didn't work in Karmic.
+- Editing launchers wasn't possible if the folder ~/.dockbarx/launchers didn't already exist.
+
+x.0.39.6
+End user featuers:
+- You can now easily edit and add custom launchers.
+
+Bug fixes:
+- Bug #606568: DockbarX crashed on upstart if zeitgeist were not installed.
+- A small bug that caused missing icons.
+
+x.0.39.5-1
+Bug fixes:
+- Bug #603742: Keyboard shortcuts didn't work when swapping between different workspaces (metacity).
+- Stupid bug that could cause crashes fixed.
+- Fix for launching files with uris that contains ' or ".
+
+x.0.39.5
+End user features:
+- A new submenu called "Related" has been added to the group button menu. This submenu contains files that has been used recently (within the same day) by programs other than the one the button belongs to, but can be opened by the program. This is pretty much the same functionality as you get from the related plugin in AWN. Example: If you recently opened a picture in eog, you can open it in gimp by right clicking gimp's group button and finding the picture in the "Related" submenu. (Unless, of course, you've also opened the file in gimp recently, then you'll find it in the recent menu instead).
+- Recent and Most used works for OpenOffice now. It is a bit of a hack (technically, the submenu is populated with recent files that can be opened by OpenOffice instead of files recently opened by OpenOffice), so don't expect it to work perfectly.
+- The number of items in "Recent" and "Most used" submenus has been increased to eight and the timespan from which the Resent and Most used files are searched are increased from 14 days to 30 days.
+- Rules added for programs that couldn't be pinned automatically, like amarok 1.4 or thunderbird 2. (Information about other programs that can't be pinned with DockbarX are most welcome!)
+- Launching is more compatible with freedesktop standards. This means among other things that launching multiple files should work with most programs now.
+- Launchers should be more stable now, since they no longer use different systems depending on if they were added by dragging an icon from gnome menu or by using "Pin application" option in the group button menu. 
+
+Bug fixes:
+- Bug #599829 fixed: Separate OpenOffice apps works again.
+- Bug #600924: DockbarX crashed on upstart when used in AWN.
+- Bug #602960: Dockbarx doesn't save pinned applications. Patch by Tom Klaver.
+- Fixed a bug that stopped DockbarX from working with older distributions (Karmic).
+- If the compiz plugin KDE compability isn't installed, DockbarX will inform the user about this when trying to activate plugins, instead of asking if it should activate the plugin.
+
+x.0.39.4
+End user features:
+- DockbarX can now pin wine applications and is better at recognizing wine application launchers automatically.
+- The preference dialog is redesigned to take less space (should even fit a eeepc 700 screen now) and to have the options in more intuitive places.  
+- Changing between showing and not showing previews doesn't require reloading DockbarX anymore.
+- New translations added.
+
+Bug fixes:
+- Drag and drop for multiple files works now.
+- Titles in Asian languages should use the correct font attributes for the whole window titles, instead getting the right attribute only for the first 50 letters.
+- Possible bug fix for a situation where DockbarX couldn't open detect open windows. (Bug #592304)
+
+x.0.39.3
+End user features:
+- Global shortcuts added. You can now cykel through groups or through windows within a group. See Advanced tab of preference window. New dependency: python-keybinder.
+- Translation support added for theme colors.
+
+Bug fixes:
+- Bug #591511 fixed: "Select action" options couldn't be changed. (Patch by eoe42)
+
+Translations:
+- Brazilian Portuguese, Dutch, German, Greek, Polish and Russian added. Some of these translations are only half-done, but they are still included to encourage people to go on finish them. 
+- Swedish updated. 
+Big thanks to all translators!
+
+x.0.39.2
+End user features:
+- DockbarX now supports translations. This release features Swedish, Spanish and Turkish translations. If you want to translate dockbarx into your language go to https://translations.launchpad.net/dockbar/dockbarx
+- When previews or opacify is activated from preference window DockbarX will ask if it should activate the needed compiz plugins for you.
+
+Bug fixes:
+- Preference Window crashes at upstart should now be fixed (for real).
+
+x.0.39.1
+End user features:
+- New preview system (ported from vanilla dockbar) that has live previews instead of stills. It is also a lot faster and hopefully more stable. To use previews you need to activate KDE Compability in compiz settings manager and under KDE Compability check "Support Plasma Thumbnails" (or use KDE's window manager kwin, which also gives you previews for minimized windows).
+
+Bug fixes:
+- Bug #576068: DockbarX crashed on stratup when used with AWN 0.4
+- Bug #587494: DockbarX Preference Window crashed on startup.
+- Bug #588052: Attention effect didn't show and didn't turn off.
+
+x.0.39
+DockbarX x.0.39 uses re-arranged code. DockbarX is now an python package. This will probably make future versions of DockbarX more stable and speed up the development some.
+
+Installation:
+- DockbarX is now installed from a setup.py. To install dockbarx simply run "sudo ./setup.py install".
+
+End user features:
+- DockbarX do now show recent and most used files in the menu when right clicking a group button. This feature requires zeitgeist and only works for programs with zeitgeist data sources.
+- Drop a file on a group button and DockbarX will try to launch that application with that file.
+- DockbarX can be used as an AWN 0.4 applet again.
+- DockbarX preference can now be reached from gnome-menu (and consequently be pinned). This is useful for AWN users since you can't reach dockbarx by right clicking the handle when DockbarX is used as an AWN applet.
+- BigRZA was kind enough to design an icon for dockbarx.
+
+Bug fixes:
+- Bug #576671 (and duplicates): DockbarX preference window didn't open.
+- Bug #580374 (and duplicates): Missing .desktop files for a dockbarx launcher won't result in a crash anymore.
+- Various bugs regarding Opacify is fixed.
+- Some other small bugs fixed as well.
+
+
+x.0.30
+End user features:
+- Previews added! This feature is still in beta state, though. (Enable it from advanced tab in preference dialog)
+- Improved looks for the window list.
+- Dockbarx has the option to show icons for windows on the current workspace only now. (See advanced tab)
+- Wine applications are no longer all grouped together (unless you want them to be, see advanced tab).
+- OpenOffice applications can be separated so that you have different group buttons for the applications (writer, calc, etc.). This also makes openoffice use themed icons and as well as being pin-able. (See advanced tab)
+- Drag and drop is improved: If you drag anything to an group button with just one open window, the window will be brought up automatically without the need to go to the popup list first. Also, the drop indicator for launchers is made less clumsy and the new look of the popup window make drag and drop through them easier.
+- The windows 7 like option "Show popup" for selecting multiple windows is added (see group button tab in preference dialog).  By Robin Burchell.
+- Preference dialog is now separated from rest of dockbarx. It can be started either the old way or with the command "dbx_preference.py"
+
+Theme makers:
+- The theme eninge uses cairo in stead of pixbufs now. The biggest change (read: inconvenience) is that alpha_mask now uses the actual alpha channel instead of the color channels. The themes need to be updated to work correctly. The resize algorithm is new as well, so check if your themes looks like they used to. Sorry for the inconveniences.
+- A size attribute is added to the if command. It uses the same syntax as the windows_cnt attribute. See theming howto for more information.
+
+Bug fixes:
+- Bug #507692: Dockbarx background wasn't tranparent.
+- Bug #510619: Clicking at pixels around the borders of dockbarx should now work.
+- Dockbarx works ok in vertical mode again.
+
+
+
+x.0.24.1-1
+DockbarX is compatible with python 2.5 (Ubuntu 8.10) again.
+
+x.0.24.1
+End user features:
+- An effect on application launch is added (only if the theme supports it). It's static and will be shown from the time a dockbarx launcher is clicked until the window is shown (or in ten seconds max).
+- The custom colors are now saved separately for every theme. When you load a new theme for the first time the default colors for the theme will be loaded. If change any color it will only effect that theme. When you change back to the theme you used before the colors will change back as well.
+- More color options (see theme making features and theming howto for more info.)
+- The theme drop down in preference dialog shows the themes in alphabetical order.
+- Default theme is updated to support the launching effect and the new color options. New theme got that as well and some more. ;)
+- Theme Gaia (know as Gaia 09 by Izoblalax) is added and updated to support all the new dockbarx features.
+
+Theme making features:
+- Themable launching effect added. The command is <if type="launching">.
+- New custom color system. The themes can now set default colors, opacity values and the color name that will be shown in preference dialog.
+- There are now eight custom colors. The functions of color1 to color4 (popup window color and text colors) are hardcoded since the popup window isn't theme-able. Color5 is the color previously known as "attention glow". Color6 to color8 set to "not used" if the theme maker doesn't give them a name. 
+See theming HOWTO for more details.
+
+Bug fixes:
+- In some case dockbarx didn't start if launchers for some programs were added.
+- Dockbarx didn't save the changes if the resource class of a launcher were change manually.
+- Some programs like the terminal started in root folder "/" instead of in of the users home folder "~/" (Bug #500171)
+- Some windows didn't turn up in dockbarx (Bug 501820)
+
+x.0.24.0
+A new launcher system (inspried by Aleksey's elegant launcher system from vanilla dockbar):
+- When you add a launcher by dragging a application from gnome menu you no longer have to enter a resource class name, dockbarx guesses it.
+- If dockbarx isn't able to guess the resource class name of a launcher correctly a "right click" menu option "Edit resource name" is added so that you manually edit the resource class name. 
+- You can add launchers by pinning running applications via the "right click" menu (works for most applications, if the options are missing for an application you can still make a launcher by dragging the icon from gnome menu and manually edit the resource class name.)
+- The launchers information are now stored in gconf instead for in the file  ~/.dockbarx/launchers.list. This will hopefully be a bit more stable.
+- Some bugs in the launcher system are fixed. Some launchers that failed to be created or failed to launch it's application in previous versions should work now.
+
+Other features:
+- A new theme "Human Bar" by bigRZA is included. 
+- Dockbarx should now use slightly less memory (not that much though).
+- Keyboard shortcuts added for the "right click" menus.
+
+Bug fixes:
+- Dockbarx preference window crashed because of a stupid typo when using workspace mode 'ignore'.
+- Dockbarx was freezing when the orientation of the applet changed.
+
+x.0.23.2
+End users features:
+- Visual feedback on the numbers of open windows (if the theme supports it).
+- A new group button action "select" replaces "select group", "select or minimize group" and "select or compiz scale group". You can configure how the new action should act when one window of a program is open and how it should act when multiple windows are open from the properties dialog.
+- Option added: It is possible to not show popup window if there are just one window open . (Useful in combination with compiz windows preview.)
+- Group button actions "compiz scale" and "compiz shift" will now just s
+elect the window if there are only one unminimized window of a program.
+- Groupbutton action 'select next' changed so that minimized windows are the last to be cycled through.
+- Properties dialog is rearranged.
+- "Default" and "New" themes updated to give feedback on multiple windows.
+
+Theme making features:
+- Possibility to add visual feedback on the numbers of windows.
+- Offset argument added to <composite>
+- New command: <colorize>
+- Small bug fixes.
+See Theming HOWTO for more information on the above changes.
+
+Bug fixes:
+- Dockbarx should work in intrepid and hardy again.
+- Some icons didn't show up in dockbarx in some circumstances.
+- Group button menu where not accessible in the last version if all windows where minimized.
+
+
+x.0.23.1
+IMPORTANT:
+- Dockbarx now uses /usr/share/dockbarx and ~/.dockbarx for storing it's
+ files instead of /usr/share/dockbar and ~/.dockbar (Bug #429043).
+
+End users features:
+- Compiz Thumbnails/preview are ported over from vanilla dockbar and is modified to work with delays.
+- Opacify can now be used at group buttons. (Settings in preference dialog.)
+- Group button actions 'compiz scale windows' and 'compiz switch windows' now includes the windows from all desktops. Same goes for 'select or compiz scale'.
+- An option for no attention effect added. (Patch by Vermind)
+- Group button action for opening preference dialog is added, since there were no way for AWN users to access it.
+
+Bug fixes:
+- One of the most long lived and most irritating bugs are now gone: Popup windows now closes even when the mouse is leaving it over one of the rounded corners.
+- Some other cases where the popup window didn't close when it should are now fixed, as well.
+- Untested bug fix for opacify for ubuntu 8.04 (hardy) and other systems with older versions of compiz fusion.
+- Bug #424629: Dockbarx does no longer crash if an invalid theme 
+is found in ~/.dockbarx/themes or /usr/share/dockbarx/themes. A dialog message is shown if no working themes are found.
+
+... and some code cleanup.
+
+
+x.0.21.11
+End users features:
+- Group button actions 'select next window' and 'select previous window' is added. Default buttons for them is scroll up and scroll down.
+- Group button action 'select or compiz scale group' is added. It behaves like 'select or minimize group' action when only one window is open in a group. If there is more than one window in a group, 'compiz scale' is used instead.
+- A two seconds launch prevention is now issued after each application launch. This will prevent multiple launches of applications as a result of people double clicking on launchers accidentally. (Blueprint and patch by Vermind. Thank you.)
+- None square icons are no longer stretched out when shown on group buttons.
+- 'New' and 'Minimalistic' themes been improved.
+
+Theme making features:
+- Theming HOWTO added.
+- Group buttons can now be set to different aspect ratios.
+- Alpha mask command added
+- Get_pixmap command added
+- The blink effect for attention is now dealt with in themes with the command <if type="blink"></if> instead of using the same effect as mouseover (<if command type="mouseover"></if>). This will make it possible for theme makers to make fancy mouseover or blink effects without having to worry about the side effects it might have on the other effect.
+- Some small improvements and bug fixes
+
+Bug fixes:
+- Bug #402806: Popup windows got stuck if they where open when reload were pressed.
+- Bug #411337: Closing a window that needed attention didn't stop the attention effect.
+- Bug #406610: DockbarX behaved very oddly in Ubuntu Karmic.
+
+
+
+Experimental 0.21.10
+- Dockbarx now uses themes. They are .tar.gz files that should be put in /usr/share/dockbar/themes or ~/.dockbar/themes. Documentation on how to make themes will come later but you could always take a look on the existing theme files and try to change them, if you are curious. Be aware the much will still change when it comes to the format of the config file in the theme, though. New themes are added simply by moving them to either folder. 
+- There are no more delays before closing the popup window when the mouse cursor is moved away from the group button (this should make those of you who uses no popup delay happy). On the other hand, when the mouse cursor is resting in the gap between group button and windowpane the window won't close (this should make slow moving people happy). This will hopefully lead to fewer situations where the popup window is left open as well.
+
+Experimental 0.21.9
+- A popup menu is added as a window button action (At right click in default settings).
+- (Un)maximize all windows and (un)minimize all windows options are added to the group button popup menu.
+- Brightness effect on launcher buttons are now only affecting the icon, not the whole button.
+- New group button action Maximize all and new windows button action toggle maximized are added.
+- Group button actions Select and Select or minimize no longer unlocks all locked windows in the group.
+- Bug #374850 fixed: A small bug in the icon selection algorithm that caused dockbarx to crash in some situations. (Fix by Vermind, thx.)
+
+Experimental 0.21.8
+- Drag and drop of new launchers and moving of group buttons shows an indicator of where the group button will be placed.
+- Onnmouseover brightness effect added. (This is just a temporary test and I will remove it unless I get positive feedback on it. Tell me your opinion!)
+- Bug #371119 fixed: Pidgin contact list couldn't be activated, minimized or unminimized using select [or minimize] window button action.
+- Bug #372235 possibly fixed: Opacify might work now with Compiz Fusion 0.7.4 (used in Ubuntu Hardy). (Compiz Fusion 0.7.4 users please tell me if this is true!)
+
+Experimental 0.21.7
+- When unlocking a window using lock/unlock action, the window is no longer unminimized.
+- Move cursor is shown instead of copy cursor when moving a group button.
+- Active window is set at startup.
+- Bugfix: DockBarx didn't start if added to a vertical panel.
+- Bug #370104 fixed: Preference dialog now works in hardy and other systems that uses pygtk <2.14.
+- Bug #368721 fixed: Compiz scale all action doesn't leave popup window open anymore.
+- Code clean up and documentation
+
+Experimental 0.21.6
+- It's now possible to raise windows via popup window during drag and drops. (Similar to what you can do with gnome's normal window list.)
+- Delay added to opacify
+- When using opacify, clicking a window button now brings transparency back to normal.
+- Opacify is not initiated for minimized windows anymore.
+- New window button action: Select window (no minimize).
+- New group button action: Compiz scale all.
+
+Experimental 0.21.5-1
+- Really stupid bug fixed. Big "Sorry!" for not checking the code before releasing it.
+
+Experimental 0.21.5
+- Opacify: When the mouse cursor is over a window name in popup window all other windows get transparent. Activate it from preference dialog. (You need to activate "Opacity, Brightness and Saturation" plugin in compiz to use it.)
+- AWN wrapper ported from vanilla DockBar (by Scott Barnes).
+
+Experimental 0.21.4
+- Bug fix: Popup windows didn't always resize correctly under Compiz if dockbarx were killed and restarted.
+- The title of popup windows uses the normal text color instead of always being white.
+- Small fixes to Compiz scale and compiz switch actions.
+- Typo fixed.
+
+Experimental 0.21.3
+- Options in preference dialog for changing colors and transparency.
+- Preference dialog is now split in two tabs (behavior and appearance).
+- Bug fixes (unconfirmed).
+
+Experimental 0.21.2
+- New group button action: Compiz switch. Needs to be selected in preference dialog to be used (I recommend setting it on scroll up or down). Compiz switch plug in needs to be activated as well.
+- When a group holds the active window and (a) minimized window(s) only the "normal" half will glow. (Once again: I'm really not sure if this looks any better. Opinions needed.)
+- Some bug fixes. Tell me if any bug you reported has disappeared.
+
+Experimental 0.21.1-1
+- Bugfix: stupid bug stopping dockbarx from running in window.
+- Slightly less transparency on active glow
+
+Experimental 0.21.1
+- The icons are now 2 pixels shorter on height and width. This will ensure a pixel on every side of the icon reserved for the active glow.
+- The active glow is now changed to utilize it's extra space (meaning the glow is no longer overlapping the icon near the borders).
+- The glow is now thicker and is fading towards it's ends.
+- Some code clean up.
+
+Experimental 0.21.0
+- Version number changed to follow vanilla Dockbar (nothing ported over from vanilla Dockbar since 0.21 was a bugfix release for bugs - unless I'm mistaken - shouldn't exist in DockbarX)
+- Minimized group icons are less transparent and has a slight notion of color in them
+- The transition between the "minimized" and the "normal" half of the group button when some windows in a group are minimized is now smoother.
+- The group button holding the active button "glows" now instead of using active_icon.png. (Tell me if the glow is a good idea or not. If it is I will add options for changing it's color and thickness from the preference dialog, otherwise I will remove it and go back to using active_icon.)
+
+Experimental 0.20.8
+- Resource class name is used instead of class name to keep groups together. Before this change DockBarX couldn't recognize that windows of some applications (like video window and control window for xine-ui) belonged together. Some applications (vlc amongst others) don't have a resource class name. These applications will still be using their class name.
+- DockBarX tries to find the correct name for the application to show in the popup instead of just showing the class name. The algorithm is far from perfect. Please report any really odd names!
+- If you need to know the resolution class name for adding a launcher, it's added as a tooltip to the title of the popup window.
+- Another stupid bug fixed. (Hopefully this bug fix will stop jaunty from giving false crash reports for DockBarX.)
+
+Experimental 0.20.7
+- A completely redesigned popup look (with transparency if compositing is used)
+- The light-up effect is removed from launcher rollover and the name of the application is shown instead. (Feedback needed: is this an improvement or not?)
+
+Experimental 0.20.6
+- Bug fix: Some programs (wine and possibly others) didn't show up in DockBar.
+- Bug fix: Popup list blocks the popup menu. (This was actually already fixed in a silent update of 0.20.5, I apologize for not announcing it.)
+
+Experimental 0.20.5
+- New more intuitive look on minimized and locked window buttons
+
+Experimental 0.20.4
+- Adjustable popup delay (default 250 ms)
+- As requested: Popup window alignment can be set in the preference dialog (Center alignment default)
+- Dockbar now uses other gconf values than just strings (doesn't matter to you End-Users, unless you want to change settings with gconf-editor instead of preference dialog) 
+
+Experimental 0.20.3
+- Bug fix: DockBar won't crash if it can't find launcher_icon.png or active_icon.png
+- Minor bug fixed: The popup list is closed when the viewport changes because of select group or select window actions. This way there are no risk that the popup is left open even if the mouse moved away from the group button during the switch animation.
+
+Experimental 0.20.2
+- The stupid bug fixed
+
+Experimental 0.20
+- The name is changed to DockBar Experimental or dockbarx for short to make it possible to have both vanilla DockBar
+  and Dockbar Experimental installed at the same time. 
+- Features ported back from vanilla DockBar 0.20 and 0.19:
+   - Preference and about dialog, gconf configuration
+   - Configurable "needs attention" effect
+   - Group button actions "Minimize all other groups" and "Compiz scale" (can be assigned to any mouse button)
+   - Bug fixes and other stuff I forgot to mention
+- All buttons are configurable in Preference dialog
+- New group button actions
+   - Launch application (on shift + left click as default)
+   - Select group (no minimize)
+   - Minimize all windows (no select)
+- Behavior when multiple workspaces or viewports are used are configurable from Preference dialog
+- The popup window is centered over the group button now
+- Code cleanup and some bug fixes
+- A new good-looking launcher button image that works against both light and dark backgrounds, made by Sami Rissanen (st6)  
+
+        
+0.13-l3
+- Notifications for for windows that requires urgent attention.
+- Dockbar won't crash if there are no launcher_icon.png or active_icon.png, it will just warn you that it might look uglier.
+- launcher_icon.png and active_icon.png can be stored in /usr/share/pixmaps/dockbar for system wide installations of DockBar.
+
+0.13-l2
+- Right click on group button closes mouseover-popup windows and no mouseover-popup windows will open until the right click menu is closed
+
+0.13-l
+-First real public release

@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="appdockbarx">
+    <schema id="org.dockbarx" path="/org/dockbarx/">
+        <key name="theme" type="s">
+            <default>'DockXYZ'</default>
+        </key>
+        <key name="launchers" type="as">
+            <default>[]</default>
+        </key>
+        <key name="user-number-shortcuts" type="b">
+            <default>true</default>
+        </key>
+        <key name="groupbutton-attention-notification-type" type="s">
+            <default>'nothing'</default>
+        </key>
+        <key name="popup-style-file" type="s">
+            <default>'dbx.tar.gz'</default>
+        </key>
+        <key name="workspace-behavior" type="s">
+            <default>'switch'</default>
+        </key>
+        <key name="popup-delay" type="i">
+            <default>250</default>
+        </key>
+        <key name="second-popup-delay" type="i">
+            <default>30</default>
+        </key>
+        <key name="popup-align" type="s">
+            <default>'center'</default>
+        </key>
+        <key name="no-popup-for-one-window" type="b">
+            <default>false</default>
+        </key>
+        <key name="show-only-current-desktop" type="b">
+            <default>false</default>
+        </key>
+        <key name="show-only-current-monitor" type="b">
+            <default>false</default>
+        </key>
+        <key name="preview" type="b">
+            <default>false</default>
+        </key>
+        <key name="preview-size" type="i">
+            <default>150</default>
+        </key>
+        <key name="preview-minimized" type="b">
+            <default>true</default>
+        </key>
+        <key name="old-menu" type="b">
+            <default>false</default>
+        </key>
+        <key name="show-close-button" type="b">
+            <default>true</default>
+        </key>
+        <key name="locked-list-in-menu" type="b">
+            <default>true</default>
+        </key>
+        <key name="locked-list-no-overlap" type="b">
+            <default>false</default>
+        </key>
+        <key name="window-title-width" type="i">
+            <default>140</default>
+        </key>
+        <key name="reorder-window-list" type="b">
+            <default>true</default>
+        </key>
+        <key name="select-one-window" type="s">
+            <default>'select or minimize window'</default>
+        </key>
+        <key name="select-multiple-windows" type="s">
+            <default>'select or minimize all'</default>
+        </key>
+        <key name="delay-on-select-all" type="b">
+            <default>true</default>
+        </key>
+        <key name="select-next-use-lastest-active" type="b">
+            <default>false</default>
+        </key>
+        <key name="select-next-activate-immediately" type="b">
+            <default>false</default>
+        </key>
+        <key name="dockmanager" type="b">
+            <default>false</default>
+        </key>
+        <key name="media-buttons" type="b">
+            <default>false</default>
+        </key>
+        <key name="quicklist" type="b">
+            <default>false</default>
+        </key>
+        <key name="unity" type="b">
+            <default>false</default>
+        </key>
+        <key name="badge-use-custom-font" type="b">
+            <default>false</default>
+        </key>
+        <key name="badge-font" type="s">
+            <default>'sans 10'</default>
+        </key>
+        <key name="badge-custom-bg-color" type="b">
+            <default>false</default>
+        </key>
+        <key name="badge-bg-color" type="s">
+            <default>'#CDCDCD'</default>
+        </key>
+        <key name="badge-bg-alpha" type="i">
+            <default>255</default>
+        </key>
+        <key name="badge-custom-fg-color" type="b">
+            <default>false</default>
+        </key>
+        <key name="badge-fg-color" type="s">
+            <default>'#020202'</default>
+        </key>
+        <key name="badge-fg-alpha" type="i">
+            <default>255</default>
+        </key>
+        <key name="progress-custom-bg-color" type="b">
+            <default>false</default>
+        </key>
+        <key name="progress-bg-color" type="s">
+            <default>'#CDCDCD'</default>
+        </key>
+        <key name="progress-bg-alpha" type="i">
+            <default>64</default>
+        </key>
+        <key name="progress-custom-fg-color" type="b">
+            <default>false</default>
+        </key>
+        <key name="progress-fg-color" type="s">
+            <default>'#772953'</default>
+        </key>
+        <key name="progress-fg-alpha" type="i">
+            <default>255</default>
+        </key>
+        <key name="opacify" type="b">
+            <default>false</default>
+        </key>
+        <key name="opacify-group" type="b">
+            <default>false</default>
+        </key>
+        <key name="opacify-fade" type="b">
+            <default>true</default>
+        </key>
+        <key name="opacify-alpha" type="i">
+            <default>5</default>
+        </key>
+        <key name="opacify-smoothness" type="i">
+            <default>5</default>
+        </key>
+        <key name="opacify-duration" type="i">
+            <default>100</default>
+        </key>
+        <key name="separate-wine-apps" type="b">
+            <default>true</default>
+        </key>
+        <key name="separate-prism-apps" type="b">
+            <default>true</default>
+        </key>
+        <key name="separate-ooo-apps" type="b">
+            <default>true</default>
+        </key>
+        <key name="groupbutton-show-tooltip" type="b">
+            <default>false</default>
+        </key>
+        <key name="groupbutton-left-click-action" type="s">
+            <default>'select'</default>
+        </key>
+        <key name="groupbutton-shift-and-left-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="groupbutton-middle-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="groupbutton-shift-and-middle-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="groupbutton-right-click-action" type="s">
+            <default>'show menu'</default>
+        </key>
+        <key name="groupbutton-shift-and-right-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="groupbutton-scroll-up" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="groupbutton-scroll-down" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="groupbutton-left-click-double" type="b">
+            <default>false</default>
+        </key>
+        <key name="groupbutton-shift-and-left-click-double" type="b">
+            <default>false</default>
+        </key>
+        <key name="groupbutton-middle-click-double" type="b">
+            <default>false</default>
+        </key>
+        <key name="groupbutton-shift-and-middle-click-double" type="b">
+            <default>false</default>
+        </key>
+        <key name="groupbutton-right-click-double" type="b">
+            <default>false</default>
+        </key>
+        <key name="groupbutton-shift-and-right-click-double" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-left-click-action" type="s">
+            <default>'select or minimize window'</default>
+        </key>
+        <key name="windowbutton-shift-and-left-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="windowbutton-middle-click-action" type="s">
+            <default>'close window'</default>
+        </key>
+        <key name="windowbutton-shift-and-middle-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="windowbutton-right-click-action" type="s">
+            <default>'show menu'</default>
+        </key>
+        <key name="windowbutton-shift-and-right-click-action" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="windowbutton-scroll-up" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="windowbutton-scroll-down" type="s">
+            <default>'no action'</default>
+        </key>
+        <key name="windowbutton-close-popup-on-left-click" type="b">
+            <default>true</default>
+        </key>
+        <key name="windowbutton-close-popup-on-shift-and-left-click" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-close-popup-on-middle-click" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-close-popup-on-shift-and-middle-click" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-close-popup-on-right-click" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-close-popup-on-shift-and-right-click" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-close-popup-on-scroll-up" type="b">
+            <default>false</default>
+        </key>
+        <key name="windowbutton-close-popup-on-scroll-down" type="b">
+            <default>false</default>
+        </key>
+        <key name="gkeys-select-next-group" type="b">
+            <default>false</default>
+        </key>
+        <key name="gkeys-select-next-group-keystr" type="s">
+            <default>'&lt;superTab&gt;'</default>
+        </key>
+        <key name="gkeys-select-previous-group" type="b">
+            <default>false</default>
+        </key>
+        <key name="gkeys-select-previous-group-keystr" type="s">
+            <default>'&lt;super&gt;&lt;shift&gt;Tab'</default>
+        </key>
+        <key name="gkeys-select-next-window" type="b">
+            <default>false</default>
+        </key>
+        <key name="gkeys-select-next-window-keystr" type="s">
+            <default>'&lt;super&gt;&lt;control&gt;Tab'</default>
+        </key>
+        <key name="gkeys-select-previous-window" type="b">
+            <default>false</default>
+        </key>
+        <key name="gkeys-select-previous-window-keystr" type="s">
+            <default>'&lt;super&gt;&lt;control&gt;&lt;shift&gt;Tab'</default>
+        </key>
+        <key name="gkeys-select-next-group-skip-launchers" type="b">
+            <default>false</default>
+        </key>
+        <key name="use-number-shortcuts" type="b">
+            <default>false</default>
+        </key>
+        <key name="max-size" type="i">
+            <default>1612</default>
+        </key>
+        <key name="refresh" type="b">
+            <default>false</default>
+        </key>
+        <child name="dock" schema="org.dockbarx.dock"/>
+        <child name="awn" schema="org.dockbarx.awn"/>
+        <child name="themes" schema="org.dockbarx.themes"/>
+        <child name="applets" schema="org.dockbarx.applets"/>
+    </schema>
+    <schema id="org.dockbarx.applets" path="/org/dockbarx/applets/">
+        <key name="applet-list" type="as">
+            <default>['']</default>
+        </key>
+    </schema>
+    <schema id="org.dockbarx.dock" path="/org/dockbarx/dock/">
+        <key name="theme-file" type="s">
+            <default>'dbx.tar.gz'</default>
+        </key>
+        <!--<key name="launchers" type="as">
+            <default>['nautilus;/usr/share/applications/org.gnome.Nautilus.desktop', 'gooroom-browser;/usr/share/applications/gooroom-browser.desktop']</default>
+        </key>-->
+        <key name="position" type="s">
+            <default>'left'</default>
+        </key>
+        <key name="size" type="i">
+            <default>42</default>
+        </key>
+        <key name="offset" type="i">
+            <default>0</default>
+        </key>
+        <key name="mode" type="s">
+            <default>'panel'</default>
+        </key>
+        <key name="behavior" type="s">
+            <default>'panel'</default>
+        </key>
+        <key name="end-decorations" type="b">
+            <default>false</default>
+        </key>
+        <child name="theme" schema="org.dockbarx.dock.theme"/>
+    </schema>
+    <schema id="org.dockbarx.dock.theme" path="/org/dockbarx/dock/theme/">
+        <!--<key name="theme-file" type="s">
+            <default>'dbx.tar.gz'</default>
+        </key>-->
+        <key name="values" type="as">
+            <default>['']</default>
+        </key>
+        <key name="bg-color" type="s">
+            <default>'#111111'</default>
+        </key>
+        <key name="bg-alpha" type="i">
+            <default>127</default>
+        </key>
+        <key name="bar2-bg-color" type="s">
+            <default>'#111111'</default>
+        </key>
+        <key name="bar2-bg-alpha" type="i">
+            <default>127</default>
+        </key>
+    </schema>
+    <schema id="org.dockbarx.awn" path="/org/dockbarx/awn/">
+        <key name="behavior" type="s">
+            <default>'disabled'</default>
+        </key>
+    </schema>
+    <schema id="org.dockbarx.themes" path="/org/dockbarx/themes/">
+        <key name="name" type="s">
+            <default>''</default>
+        </key>
+        <key name="value" type="as">
+            <default>['']</default>
+        </key>
+        <key name="color1" type="s">
+            <default>''</default>
+        </key>
+        <key name="color1-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color2" type="s">
+            <default>''</default>
+        </key>
+        <key name="color2-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color3" type="s">
+            <default>''</default>
+        </key>
+        <key name="color3-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color4" type="s">
+            <default>''</default>
+        </key>
+        <key name="color4-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color5" type="s">
+            <default>''</default>
+        </key>
+        <key name="color5-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color6" type="s">
+            <default>''</default>
+        </key>
+        <key name="color6-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color7" type="s">
+            <default>''</default>
+        </key>
+        <key name="color7-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color8" type="s">
+            <default>''</default>
+        </key>
+        <key name="color8-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="color9" type="s">
+            <default>''</default>
+        </key>
+        <key name="color9-alpha" type="i">
+            <default>-1</default>
+        </key>
+        <key name="popup-style-file" type="s">
+            <default>''</default>
+        </key>
+    </schema>
+</schemalist>

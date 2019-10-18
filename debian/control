@@ -1,0 +1,32 @@
+Source: gooroom-dockbarx
+Section: gnome
+Priority: extra
+Maintainer: gooroom <gooroom@gooroom.kr>
+Build-Depends: cdbs (>= 0.4.49), debhelper (>= 7), dh-python, python
+X-Python-Version: >= 2.6
+Standards-Version: 3.9.7
+Homepage: https://github.com/gooroom/gooroom-dockbarx
+
+Package: gooroom-dockbarx
+Architecture: all
+Depends:  ${misc:Depends}, gooroom-dockbarx-dockx
+Description: Gooroom DockBarX, an icon-based taskbar
+ TaskBar with groupping and group manipulation.
+ Experimental version.
+
+Package: gooroom-dockbarx-common
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}, python-numpy, python-xlib, python-pil, zeitgeist, python-zeitgeist, at-spi2-core, gir1.2-gtk-3.0, gir1.2-wnck-3.0, gir1.2-keybinder-3.0, gir1.2-gdkpixbuf-2.0, gir1.2-pango-1.0, gir1.2-glib-2.0, python-gi-cairo
+Recommends: zeitgeist (>= 0.4)
+Conflicts: dockbarx (<< 0.90.2), dockbarx-themes-extra (<< 2.0)
+Replaces: dockbarx (<< 0.90.2), dockbarx-themes-extra (<< 2.0)
+Description: Gooroom DockBarX common files
+ This package contains the DockBarX common files
+
+Package: gooroom-dockbarx-dockx
+Architecture: all
+Depends: ${misc:Depends}, gooroom-dockbarx-common
+Conflicts: dockbarx (<< 0.90.2), gnome-dockbar-applet-launchers, gnome-dockbarx-applet (<= 0.21.5-0)
+Replaces: dockbarx (<< 0.90.2), gnome-dockbar-applet-launchers, gnome-dockbarx-applet (<= 0.21.5-0)
+Description: The stand-alone Gooroom DockBarX dock called DockX
+ The stand-alone DockX package

@@ -1,0 +1,63 @@
+# Chinese (Simplified) translation for dockbar
+# Copyright (c) 2010 Rosetta Contributors and Canonical Ltd 2010
+# This file is distributed under the same license as the dockbar package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dockbar\n"
+"Report-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2010-06-09 13:23+0300\n"
+"PO-Revision-Date: 2012-10-18 11:43+0000\n"
+"Last-Translator: 张海 <Unknown>\n"
+"Language-Team: Chinese (Simplified) <zh_CN@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2012-10-20 14:31+0000\n"
+"X-Generator: Launchpad (build 16165)\n"
+
+msgid "Window list background"
+msgstr "窗口列表背景"
+
+msgid "Normal text"
+msgstr "普通文本"
+
+msgid "Active window text"
+msgstr "活动窗口文本"
+
+msgid "Active window"
+msgstr "活动窗口"
+
+msgid "Minimized window text"
+msgstr "最小化窗口文本"
+
+msgid "Active color"
+msgstr "活动颜色"
+
+msgid "Not used"
+msgstr "未使用"
+
+msgid "Active"
+msgstr "活动"
+
+msgid "Launching color"
+msgstr "正在启动颜色"
+
+msgid "Attention color"
+msgstr "焦点颜色"
+
+msgid "Minimized color"
+msgstr "最小化颜色"
+
+msgid "Active glow"
+msgstr "活动发光"
+
+msgid "Button color"
+msgstr "按钮颜色"
+
+msgid "Active + indicator color"
+msgstr "活动指示器颜色"
+
+msgid "Active + dots color"
+msgstr "活动点颜色"

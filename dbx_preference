@@ -1,0 +1,2360 @@
+#!/usr/bin/python2
+
+#   dbx_preference.py
+#
+#	Copyright 2008, 2009, 2010 Aleksey Shaferov and Matias Sars
+#   Copyright (C) 2015-2019 Gooroom <gooroom@gooroom.kr>
+#
+#	DockbarX is free software: you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation, either version 3 of the License, or
+#	(at your option) any later version.
+#
+#	DockbarX is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You should have received a copy of the GNU General Public License
+#	along with dockbar.  If not, see <http://www.gnu.org/licenses/>.
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import Gio
+
+import os
+from tarfile import open as taropen
+from xml.sax import make_parser
+from xml.sax.handler import ContentHandler
+import dbus
+
+from dockbarx.common import *
+from dockbarx.applets import DockXApplets
+from dockbarx.theme import PopupStyle, DockTheme
+
+import dockbarx.i18n
+_ = dockbarx.i18n.language.gettext
+dockbarx.i18n.load_theme_translation()
+import getpass
+
+GSETTINGS_CLIENT = Gio.Settings.new("org.dockbarx")
+GSETTINGS_DOCK = Gio.Settings.new("org.dockbarx.dock")
+GSETTINGS_THEMES = Gio.Settings.new("org.dockbarx.themes")
+GSETTINGS_AWN = Gio.Settings.new("org.dockbarx.awn")
+GSETTINGS_DOCK_THEME = GSETTINGS_DOCK.get_child("theme")
+
+class ThemeHandler(ContentHandler):
+    """Reads the xml-file into a ODict"""
+    def __init__(self):
+        self.dict = ODict()
+        self.name = None
+        self.nested_contents = []
+        self.nested_contents.append(self.dict)
+        self.nested_attributes = []
+
+    def startElement(self, name, attrs):
+        name = name.lower().encode()
+        if name == "theme":
+            for attr in attrs.keys():
+                if attr.lower() == "name":
+                    self.name = attrs[attr]
+            return
+        # Add all attributes to a dictionary
+        d = {}
+        for key, value in attrs.items():
+            # make sure that all text is in lower
+            # except for file_names
+            if key.encode().lower() == "file_name":
+                d[key.encode().lower()] = value.encode()
+            else:
+                d[key.encode().lower()] = value.encode().lower()
+        # Add a ODict to the dictionary in which all
+        # content will be put.
+        d["content"] = ODict()
+        self.nested_contents[-1][name] = d
+        # Append content ODict to the list so that it
+        # next element will be put there.
+        self.nested_contents.append(d["content"])
+
+        self.nested_attributes.append(d)
+
+    def endElement(self, name):
+        if name == "theme":
+            return
+        # Pop the last element of nested_contents
+        # so that the new elements won't show up
+        # as a content to the ended element.
+        if len(self.nested_contents)>1:
+            self.nested_contents.pop()
+        # Remove Content Odict if the element
+        # had no content.
+        d = self.nested_attributes.pop()
+        if d["content"].keys() == []:
+                d.pop("content")
+
+    def get_dict(self):
+        return self.dict
+
+    def get_name(self):
+        return self.name
+
+class Theme():
+    @staticmethod
+    def check(path_to_tar):
+        #TODO: Optimize this
+        tar = taropen(path_to_tar)
+        config = tar.extractfile("config")
+        parser = make_parser()
+        theme_handler = ThemeHandler()
+        try:
+            parser.setContentHandler(theme_handler)
+            parser.parse(config)
+        except:
+            tar.close()
+            raise
+        tar.close()
+        return theme_handler.get_name()
+        
+    @staticmethod
+    def get_info(path_to_tar):
+        tar = taropen(path_to_tar)
+        config = tar.extractfile("config")
+        if "info" in tar.getnames():
+            f = tar.extractfile("info")
+            info = f.read()
+            f.close()
+        else:
+            info = None
+        tar.close()
+        return info
+
+    def __init__(self, path_to_tar):
+        tar = taropen(path_to_tar)
+        config = tar.extractfile("config")
+
+        # Parse
+        parser = make_parser()
+        theme_handler = ThemeHandler()
+        parser.setContentHandler(theme_handler)
+        parser.parse(config)
+        self.theme = theme_handler.get_dict()
+
+        # Name
+        self.name = theme_handler.get_name()
+
+        # Popup style
+        ps = self.theme.get("popup_style", {})
+        self.default_popup_style = ps.get("file_name", "dbx.tar.gz")
+
+        # Colors
+        self.color_names = {}
+        self.default_colors = {}
+        self.default_alphas = {}
+        colors = {}
+        if self.theme.has_key("colors"):
+            colors = self.theme["colors"]["content"]
+        for i in range(1, 9):
+            c = "color%s"%i
+            if colors.has_key(c):
+                d = colors[c]
+                if d.has_key("name"):
+                    self.color_names[c] = d["name"]
+                if d.has_key("default"):
+                    if self.test_color(d["default"]):
+                        self.default_colors[c] = d["default"]
+                    else:
+                        print "Theme error: %s\'s default" % c + \
+                              " for theme %s cannot be read." % self.name
+                        print "A default color should start with an \"#\"" + \
+                              " and be followed by six hex-digits, " + \
+                              "for example \"#FF13A2\"."
+                if d.has_key("opacity"):
+                    alpha = d["opacity"]
+                    if self.test_alpha(alpha):
+                        self.default_alphas[c] = alpha
+                    else:
+                        print "Theme error: %s\'s opacity" % c + \
+                              " for theme %s cannot be read." % self.name
+                        print "The opacity should be a number (\"0\"-\"100\")" + \
+                              " or the words \"not used\"."
+
+        tar.close()
+
+    def get_name(self):
+        return self.name
+
+    def get_gap(self):
+        return int(self.theme["button_pixmap"].get("gap", 0))
+
+    def get_windows_cnt(self):
+        return int(self.theme["button_pixmap"].get("windows_cnt", 1))
+
+    def get_aspect_ratio(self):
+        ar = self.theme["button_pixmap"].get("aspect_ratio", "1")
+        l = ar.split("/",1)
+        if len(l) == 2:
+            ar = float(l[0])/float(l[1])
+        else:
+            ar = float(ar)
+        return ar
+
+    def get_default_colors(self):
+        return self.default_colors
+
+    def get_default_alphas(self):
+        return self.default_alphas
+
+    def get_color_names(self):
+        return self.color_names
+
+    def test_color(self, color):
+        if len(color) != 7:
+            return False
+        try:
+            t = int(color[1:], 16)
+        except:
+            return False
+        return True
+
+    def test_alpha(self, alpha):
+        if "no" in alpha:
+            return True
+        try:
+            t = int(alpha)
+        except:
+            return False
+        if t<0 or t>100:
+            return False
+        return True
+
+class AppletsFrame():
+    def __init__(self):
+        self.globals = Globals()
+        self.applets = DockXApplets()
+        applet_list = self.applets.get_list()
+        unused_list = self.applets.get_unused_list()
+        
+        self.box = Gtk.VBox(False, 7)
+        hbox = Gtk.HBox()
+        vbox = Gtk.VBox()
+        self.applet_view = self.create_treeview(applet_list, "Applets", True)
+        sw = Gtk.ScrolledWindow()
+        sw.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+        sw.add(self.applet_view)
+        #~ frame = gtk.Frame("Applets in use")
+        #~ frame.add(sw)
+        vbox.pack_start(Gtk.Label("Applets in use"), False, True, 0)
+        vbox.pack_start(sw, True, True, 0)
+        hbox.pack_start(vbox, True, True, 0)
+        
+        
+        bbox = Gtk.VBox()
+
+        self.add_button = self.create_image_button(Gtk.STOCK_GO_BACK, 
+                                              self.on_add_button_clicked, 
+                                              bbox)
+        self.add_button.set_sensitive(False)
+        self.remove_button = self.create_image_button(Gtk.STOCK_GO_FORWARD, 
+                                                 self.on_remove_button_clicked, 
+                                                 bbox)
+        self.remove_button.set_sensitive(False)
+        self.preferences_button = self.create_image_button(
+                                            Gtk.STOCK_PREFERENCES, 
+                                            self.on_preferences_button_clicked, 
+                                            bbox)
+        self.preferences_button.set_sensitive(False)
+        reload_button = self.create_image_button(Gtk.STOCK_REFRESH, 
+                                                 self.on_reload_button_clicked, 
+                                                 bbox)
+        ali = Gtk.Alignment()
+        ali.set(0.5, 0.5, 1, 0)
+        ali.add(bbox)
+        hbox.pack_start(ali, False, False, 0)
+
+        vbox = Gtk.VBox()
+        self.av_applet_view = self.create_treeview(unused_list, 
+                                                   "Available applets", 
+                                                   False, True)
+        sw = Gtk.ScrolledWindow()
+        sw.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+        sw.add(self.av_applet_view)
+        vbox.pack_start(Gtk.Label("Available applets"), False, True, 0)
+        vbox.pack_start(sw, True, True, 0)
+        #~ frame = gtk.Frame("Available applets")
+        #~ frame.add(self.av_applet_view)
+        #~ vbox.pack_start(frame)
+        hbox.pack_start(vbox, True, True, 0)
+        
+        self.box.pack_start(hbox, True, True, 0)
+        self.textbuffer = self.create_textview(self.box)
+        self.box.show_all()
+
+    def get_box(self):
+        return self.box
+
+    def create_image_button(self, stock, call_func=None, parent=None):
+        button = Gtk.Button()
+        button.add(Gtk.Image.new_from_stock(stock,
+                                            Gtk.IconSize.LARGE_TOOLBAR))
+        if call_func:
+            button.connect("clicked", call_func)
+        if parent:
+            parent.pack_start(button, True, True, padding=5)
+        return button
+
+    def create_textview(self, parent):
+        sw = Gtk.ScrolledWindow()
+        sw.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.set_size_request(-1, 150)
+        textview = Gtk.TextView()
+        textview.set_wrap_mode(Gtk.WrapMode.WORD)
+        sw.add(textview)
+        if parent:
+            parent.pack_start(sw, False, False, 0)
+        return textview.get_buffer()
+        
+    def create_treeview(self, content, name, reorderable=False, sort=False):
+        store = Gtk.ListStore(str)
+        self.reload_model(store, content)
+        tree_view = Gtk.TreeView(store)
+        tree_view.connect("row-activated", self.on_activated)
+        tree_view.connect("cursor-changed", self.on_cursor_changed)
+        tree_view.set_headers_visible(False)
+        #~ tree_view.set_rules_hint(True)
+        tree_view.set_reorderable(reorderable)
+        if sort:
+            store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+        self.create_columns(tree_view, name)
+        return tree_view
+
+    def reload_model(self, store, content):
+        store.clear()
+        for row in content:
+            store.append([row])
+        return store
+
+
+    def create_columns(self, tree_view, name):
+        rendererText = Gtk.CellRendererText()
+        column = Gtk.TreeViewColumn(name, rendererText, text=0)
+        tree_view.append_column(column)
+
+
+    def on_activated(self, treeview, row, col):
+        self.on_preferences_button_clicked()
+
+    def on_cursor_changed(self, treeview):
+        # Set description.
+        s = treeview.get_selection()
+        model, i = s.get_selected()
+        if i is None:
+            self.textbuffer.set_text("")
+            return
+        name = model[i][0]
+        description = _(self.applets.get_description(name))
+        if name == "Spacer":
+            description = "Makes some empty space between applets when the dock type is set to panel."
+        elif name == "DockbarX":
+            description = ""
+        self.textbuffer.set_text("%s\n\n%s" % (name, description))
+        # Set the buttons sensitivities
+        if treeview == self.applet_view:
+            self.remove_button.set_sensitive(name != "DockbarX")
+            self.add_button.set_sensitive(False)
+            if not name in ("DockbarX", "Spacer") and \
+               hasattr(self.applets.get(name), "run_applet_dialog"):
+                self.preferences_button.set_sensitive(True)
+            else:
+                self.preferences_button.set_sensitive(False)
+            other_selection = self.av_applet_view.get_selection()
+        else:
+            self.remove_button.set_sensitive(False)
+            self.add_button.set_sensitive(True)
+            self.preferences_button.set_sensitive(False)
+            other_selection = self.applet_view.get_selection()
+        # Unselect selection in the other treeview.
+        if other_selection.get_selected()[1] is not None:
+            other_selection.unselect_all()
+
+    def on_add_button_clicked(self, *args):
+        s = self.av_applet_view.get_selection()
+        model, i = s.get_selected()
+        if i is None:
+            return
+        applet = model[i][0]
+        model.remove(i)
+        self.applet_view.get_model().append([applet])
+        
+        self.textbuffer.set_text("")
+        self.add_button.set_sensitive(False)
+        self.remove_button.set_sensitive(False)
+        self.preferences_button.set_sensitive(False)
+        
+
+    def on_remove_button_clicked(self, *args):
+        s = self.applet_view.get_selection()
+        model, i = s.get_selected()
+        if i is None:
+            return
+        applet = model[i][0]
+        model.remove(i)
+        self.av_applet_view.get_model().append([applet])
+        
+        self.textbuffer.set_text("")
+        self.add_button.set_sensitive(False)
+        self.remove_button.set_sensitive(False)
+        self.preferences_button.set_sensitive(False)
+
+    def on_preferences_button_clicked(self, *args):
+        s = self.applet_view.get_selection()
+        model, i = s.get_selected()
+        if i is None:
+            return
+        name = model[i][0]
+        if name in ("DockbarX", "Spacer"):
+            return
+        applet = self.applets.get(name)
+        if hasattr(applet, "run_applet_dialog"):
+            self.applets.get(name).run_applet_dialog(name)
+
+    def on_reload_button_clicked(self, *args):
+        applet_list = [applet[0] for applet in self.applet_view.get_model()]
+        self.applets.set_list(applet_list)
+        # Reload DockX
+        obj = BUS.get_object("org.dockbar.DockX", "/org/dockbar/DockX")
+        iface = dbus.Interface(obj, "org.dockbar.DockX")
+        func = getattr(iface, "Reload")
+        if func:
+            func(reply_handler=self.dbus_reply_handler,
+                 error_handler=self.dbus_reply_handler)
+        # Refresh lists
+        applet_list = self.applets.get_list()
+        unused_list = self.applets.get_unused_list()
+        self.reload_model(self.applet_view.get_model(), applet_list)
+        self.reload_model(self.av_applet_view.get_model(), unused_list)
+
+    def dbus_reply_handler(*args):
+        pass
+
+class PrefDialog():
+    def __init__ (self):
+        self.globals = Globals()
+        self.__load_theme()
+        self.popup_style = PopupStyle()
+        if self.theme:
+            self.popup_styles = \
+                    self.popup_style.get_styles(self.theme.get_name())
+        else:
+            self.popup_styles = {}
+        self.dock_theme = DockTheme()
+        self.dock_themes = self.dock_theme.get_themes()
+        self.globals.connect("theme-changed", self.__on_theme_changed)
+        self.globals.connect("preference-update", self.__update)
+
+        self.dialog = Gtk.Dialog(_("DockBarX preferences"))
+        self.dialog.connect("response", self.__dialog_close)
+        self.dialog.set_icon_name("dockbarx")
+
+
+        try:
+            ca = self.dialog.get_content_area()
+        except:
+            ca = self.dialog.vbox
+        notebook = Gtk.Notebook()
+        notebook.set_tab_pos(Gtk.PositionType.LEFT)
+        appearance_box = Gtk.VBox()
+        windowbutton_box = Gtk.VBox()
+        groupbutton_box = Gtk.VBox()
+        plugins_box = Gtk.VBox()
+        advanced_box = Gtk.VBox()
+        popup_box = Gtk.VBox()
+        dock_box = Gtk.VBox()
+        self.applets_frame = AppletsFrame()
+        dock_applets_box = self.applets_frame.get_box()
+        awn_box = Gtk.VBox()
+
+        #--- Window item page
+        hbox = Gtk.HBox()
+        #FIXME by jeong: 2019.02.04
+        frame = Gtk.Frame.new(_("Window item actions"))
+        frame.set_border_width(5)
+        table = Gtk.Table(True)
+        table.set_border_width(5)
+
+        self.wb_labels_and_settings = ODict((
+                    (_("Left mouse button"), "windowbutton_left_click_action"),
+                    (_("Shift + left mouse button"),
+                                "windowbutton_shift_and_left_click_action"),
+                    (_("Middle mouse button"),
+                                "windowbutton_middle_click_action"),
+                    (_("Shift + middle mouse button"),
+                                "windowbutton_shift_and_middle_click_action"),
+                    (_("Right mouse button"),
+                                "windowbutton_right_click_action"),
+                    (_("Shift + right mouse button"),
+                                "windowbutton_shift_and_right_click_action"),
+                    (_("Scroll up"), "windowbutton_scroll_up"),
+                    (_("Scroll down"), "windowbutton_scroll_down")
+                                           ))
+
+        self.wb_actions = ODict((
+                      ("select or minimize window",
+                                            _("select or minimize window")),
+                      ("select window", _("select window")),
+                      ("maximize window", _("maximize window")),
+                      ("close window", _("close window")),
+                      ("show menu", _("show menu")),
+                      ("shade window", _("shade window")),
+                      ("unshade window", _("unshade window")),
+                      ("no action", _("no action"))
+                               ))
+
+        self.wb_combos = {}
+        for text in self.wb_labels_and_settings:
+            label = Gtk.Label(text)
+            label.set_alignment(1,0.5)
+            #FIXME by joeng: 2019.02.04
+            self.wb_combos[text] = Gtk.ComboBoxText.new()
+            for action in self.wb_actions.values():
+                self.wb_combos[text].append_text(action)
+            self.wb_combos[text].connect("changed", self.__cb_changed)
+
+            row = self.wb_labels_and_settings.get_index(text)
+            table.attach(label, 0, 1, row, row + 1, xpadding = 5)
+            table.attach(self.wb_combos[text], 1, 2, row, row + 1 )
+
+        self.wb_close_popup_checkbutton_names = [
+                        "windowbutton_close_popup_on_left_click",
+                        "windowbutton_close_popup_on_shift_and_left_click",
+                        "windowbutton_close_popup_on_middle_click",
+                        "windowbutton_close_popup_on_shift_and_middle_click",
+                        "windowbutton_close_popup_on_right_click",
+                        "windowbutton_close_popup_on_shift_and_right_click",
+                        "windowbutton_close_popup_on_scroll_up",
+                        "windowbutton_close_popup_on_scroll_down"]
+        self.wb_close_popup_checkbutton = {}
+        for i in range(len(self.wb_close_popup_checkbutton_names)):
+            name = self.wb_close_popup_checkbutton_names[i]
+            self.wb_close_popup_checkbutton[name] = \
+                                        Gtk.CheckButton(_("Close window list"))
+
+            self.wb_close_popup_checkbutton[name].connect(
+                                                    "toggled",
+                                                    self.__checkbutton_toggled,
+                                                    name)
+            table.attach(self.wb_close_popup_checkbutton[name],
+                         2, 3, i, i + 1, xpadding = 5 )
+
+        hbox.pack_start(table, False, True, 0)
+        frame.add(hbox)
+        #FIXME by jeong: 2019.02.04
+        windowbutton_box.pack_start(frame, False, True, padding=5)
+
+        self.show_close_button_cb = Gtk.CheckButton(
+                            _("Show close button"))
+        self.show_close_button_cb.connect("toggled", self.__checkbutton_toggled,
+                                          "show_close_button")
+        self.show_close_button_cb.set_border_width(10)
+        windowbutton_box.pack_start(self.show_close_button_cb,
+                                    False, True, 0)
+
+
+        #--- Appearance page
+        hbox = Gtk.HBox()
+        label = Gtk.Label(_("Theme:"))
+        label.set_alignment(1,0.5)
+        self.theme_combo = Gtk.ComboBoxText.new()
+        theme_names = self.themes.keys()
+        theme_names.sort()
+        for theme in theme_names:
+                self.theme_combo.append_text(theme)
+        button = Gtk.Button()
+        image = Gtk.Image.new_from_stock(Gtk.STOCK_REFRESH,
+                                         Gtk.IconSize.SMALL_TOOLBAR)
+        button.add(image)
+        button.connect("clicked", self.__set_theme)
+        info_button = Gtk.Button()
+        image = Gtk.Image.new_from_stock(Gtk.STOCK_INFO,
+                                         Gtk.IconSize.SMALL_TOOLBAR)
+        info_button.add(image)
+        info_button.connect("clicked", self.__show_theme_info)
+        #FIXME by jeong: 2019.02.04
+        hbox.pack_start(label, False, True, padding=5)
+        hbox.pack_start(self.theme_combo, False, True, 0)
+        hbox.pack_start(info_button, False, True, 0)
+        hbox.pack_start(button, False, True, 0)
+        #FIXME by jeong: 2019.02.04
+        appearance_box.pack_start(hbox, False, True, padding=5)
+
+        # Settings and Colors frame
+        frame = Gtk.Frame()
+        self.theme_settings_frame = frame
+        frame.set_border_width(5)
+        table = Gtk.Table(True)
+        
+        align = Gtk.Alignment()
+        align.set(0.5, 0.5, 0, 0)
+        hbox = Gtk.HBox()
+        hbox.set_border_width(10)
+        align.add(hbox)
+        label = Gtk.Label(_("Window list style:"))
+        label.set_alignment(1,0.5)
+        self.popup_style_combo = Gtk.ComboBoxText.new()
+        style_names = self.popup_styles.keys()
+        style_names.sort()
+        for style in style_names:
+            self.popup_style_combo.append_text(style)
+        self.popup_style_combo.connect("changed", self.__popup_style_changed)
+        button = Gtk.Button()
+        image = Gtk.Image.new_from_stock(Gtk.STOCK_CLEAR,
+                                         Gtk.IconSize.SMALL_TOOLBAR)
+        button.add(image)
+        button.connect("clicked", self.__reset_popup_style)
+        #FIXME by jeong: 2019.02.04
+        hbox.pack_start(label, False, True, padding=5)
+        hbox.pack_start(self.popup_style_combo, False, True, 0)
+        hbox.pack_start(button, False, True, 0)
+        table.attach(align, 0,6, 0,1)
+        
+        self.default_color_names = {
+            "color1": "Window list background",
+            "color2": "Normal text",
+            "color3": "Active window",
+            "color4": "Minimized window text",
+            "color5": "Active color",
+            "color6": "Not used",
+            "color7": "Not used",
+            "color8": "Not used" }
+        if self.theme:
+            color_names = self.theme.get_color_names()
+        else:
+            color_names={}
+            for i in range(1,9):
+                color_names["color%s"%i]="Not used"
+        self.color_labels = {}
+        self.color_buttons = {}
+        self.clear_buttons = {}
+        for i in range(0, 8):
+            c = "color%s"%(i+1)
+            self.color_labels[c] = Gtk.Label()
+            self.color_labels[c].set_no_show_all(True)
+            self.color_labels[c].show()
+            self.color_labels[c].set_alignment(1,0.5)
+            self.color_buttons[c] = Gtk.ColorButton()
+            self.color_buttons[c].set_no_show_all(True)
+            self.color_buttons[c].show()
+            self.color_buttons[c].connect("color-set",  self.__color_set, c)
+            self.clear_buttons[c] = Gtk.Button()
+            image = Gtk.Image.new_from_stock(Gtk.STOCK_CLEAR,
+                                             Gtk.IconSize.SMALL_TOOLBAR)
+            self.clear_buttons[c].add(image)
+            self.clear_buttons[c].show_all()
+            self.clear_buttons[c].set_no_show_all(True)
+            self.clear_buttons[c].connect("clicked", self.__color_reset, c)
+            # Every second label + combobox on a new row
+            row = (i // 2) + 1
+            # Pack odd numbered comboboxes from 3rd column
+            column = (i % 2)*3
+            table.attach(self.color_labels[c], column, column + 1, row,
+                         row + 1, xoptions = Gtk.AttachOptions.FILL, xpadding = 5)
+            table.attach(self.color_buttons[c], column+1,
+                         column+2, row, row + 1)
+            table.attach(self.clear_buttons[c], column+2, column+3,
+                         row, row + 1, xoptions = Gtk.AttachOptions.FILL)
+        table.set_border_width(5)
+        frame.add(table)
+        #FIXME by jeong: 2019.02.04
+        appearance_box.pack_start(frame, False, False, padding=5)
+        self.__update_color_labels()
+
+
+        # Needs attention effect frame
+        hbox = Gtk.HBox()
+        frame = Gtk.Frame.new(_("Needs attention effect"))
+        frame.set_border_width(5)
+        vbox = Gtk.VBox()
+        vbox.set_border_width(10)
+        self.rb1_1 = Gtk.RadioButton.new_with_label_from_widget(None, _("Compiz water"))
+        self.rb1_1.connect("toggled", self.__rb_toggled, "rb1_compwater")
+        self.rb1_2 = Gtk.RadioButton.new_with_label_from_widget(self.rb1_1, _("Blinking"))
+        self.rb1_2.connect("toggled", self.__rb_toggled, "rb1_blink")
+        self.rb1_3 = Gtk.RadioButton.new_with_label_from_widget(self.rb1_1, _("Static"))
+        self.rb1_3.connect("toggled", self.__rb_toggled, "rb1_red")
+        self.rb1_4 = Gtk.RadioButton.new_with_label_from_widget(self.rb1_1, _("No effect"))
+        self.rb1_4.connect("toggled", self.__rb_toggled, "rb1_nothing")
+        vbox.pack_start(self.rb1_1, False, True, 0)
+        vbox.pack_start(self.rb1_2, False, True, 0)
+        vbox.pack_start(self.rb1_3, False, True, 0)
+        vbox.pack_start(self.rb1_4, False, True, 0)
+        frame.add(vbox)
+        hbox.pack_start(frame, True, True, 0)
+        appearance_box.pack_start(hbox, False, True, padding=5)
+
+        self.old_menu_cb = Gtk.CheckButton(
+              _("Use gtk menu (old style) instead of DockbarX style menu."))
+        self.old_menu_cb.connect("toggled",
+                                 self.__checkbutton_toggled, "old_menu")
+        alignment = Gtk.Alignment()
+        alignment.set_padding(5, 5, 10, 10)
+        alignment.add(self.old_menu_cb)
+        appearance_box.pack_start(alignment, False, True, 0)
+
+        bpbox = Gtk.HBox()
+        # Badge frame
+        frame = Gtk.Frame.new(_("Badge"))
+        frame.set_border_width(5)
+        vbox = Gtk.VBox()
+        vbox.set_border_width(10)
+        label = Gtk.Label(_("Custom colors"))
+        vbox.pack_start(label, False, True, 0)
+        table = Gtk.Table(True)
+        self.custom_badge_color_cbs = []
+        self.badge_color_buttons = []
+        for i in (0, 1):
+            text = (_("Text"), _("Background"))[i]
+            s = ("badge_custom_fg_color", "badge_custom_bg_color")[i]
+            self.custom_badge_color_cbs.append(Gtk.CheckButton(text))
+            self.custom_badge_color_cbs[i].connect("toggled",
+                                                   self.__checkbutton_toggled,
+                                                   s)
+            self.badge_color_buttons.append(Gtk.ColorButton())
+            text = (_("Custom badge text color"), 
+                    _("Custom badge background color"))[i]
+            s = ("badge_fg", "badge_bg")[i]
+            self.badge_color_buttons[i].set_title(text)
+            self.badge_color_buttons[i].set_use_alpha(True)
+            self.badge_color_buttons[i].connect("color-set",
+                                                self.__bp_color_set, s)
+            table.attach(self.custom_badge_color_cbs[i], 0, 1, i, i + 1,
+                         xoptions = Gtk.AttachOptions.FILL, xpadding = 5)
+            table.attach(self.badge_color_buttons[i], 1, 2, i, i + 1)
+        vbox.pack_start(table, False, True, 0)
+        
+        bfbox = Gtk.HBox()
+        self.custom_badge_cb = Gtk.CheckButton(_("Custom font and size"))
+        self.custom_badge_cb.connect("toggled", self.__checkbutton_toggled,
+                                     "badge_use_custom_font")
+        bfbox.pack_start(self.custom_badge_cb, False, True, 0)
+        self.badge_font_button = Gtk.FontButton()
+        self.badge_font_button.set_use_font(True)
+        self.badge_font_button.set_use_size(True)
+        self.badge_font_button.set_show_style(True)
+        self.badge_font_button.set_title(_("Badge font"))
+        self.badge_font_button.connect("font_set", self.__set_font,
+                                       "badge_font")
+        bfbox.pack_start(self.badge_font_button, False, True, padding=5)
+        vbox.pack_start(bfbox, False, True, padding = 5)
+        frame.add(vbox)
+        bpbox.pack_start(frame, True, True, 0)
+        
+
+        # Progress frame
+        frame = Gtk.Frame.new(_("Progress bar"))
+        frame.set_border_width(5)
+        vbox = Gtk.VBox()
+        vbox.set_border_width(10)
+        label = Gtk.Label(_("Custom colors"))
+        vbox.pack_start(label, False, True, 0)
+        table = Gtk.Table(True)
+        self.custom_progress_color_cbs = []
+        self.progress_color_buttons = []
+        for i in (0, 1):
+            text = (_("Foreground"), _("Background"))[i]
+            s = ("progress_custom_fg_color",
+                 "progress_custom_bg_color")[i]
+            self.custom_progress_color_cbs.append(Gtk.CheckButton(text))
+            self.custom_progress_color_cbs[i].connect("toggled",
+                                                   self.__checkbutton_toggled,
+                                                   s)
+            self.progress_color_buttons.append(Gtk.ColorButton())
+            text = (_("Custom progress bar foreground color"), 
+                    _("Custom progress bar background color"))[i]
+            s = ("progress_fg", "progress_bg")[i]
+            self.progress_color_buttons[i].set_title(text)
+            self.progress_color_buttons[i].set_use_alpha(True)
+            self.progress_color_buttons[i].connect("color-set",
+                                                   self.__bp_color_set, s)
+            table.attach(self.custom_progress_color_cbs[i], 0, 1, 
+                         i, i + 1, xoptions = Gtk.AttachOptions.FILL, xpadding = 5)
+            table.attach(self.progress_color_buttons[i], 1, 2, i, i + 1)
+        vbox.pack_start(table, False, True, 0)
+        frame.add(vbox)
+        bpbox.pack_start(frame, True, True, 0)
+        appearance_box.pack_start(bpbox, True, True, 0)
+
+
+        #--- Popup page
+        popup_box.set_border_width(5)
+        self.reorder_window_list_cb = Gtk.CheckButton(
+                          _("Reorder the window list so that the last activated window is first in the list."))
+        self.reorder_window_list_cb.connect("toggled", self.__checkbutton_toggled,
+                                 "reorder_window_list")
+        popup_box.pack_start(self.reorder_window_list_cb, False, True, padding=5)
+        self.no_popup_cb = Gtk.CheckButton(
+                          _("Show window list only if more than one window is open"))
+        self.no_popup_cb.connect("toggled", self.__checkbutton_toggled,
+                                 "no_popup_for_one_window")
+        popup_box.pack_start(self.no_popup_cb, False, True, padding=5)
+
+        self.show_tooltip_cb = Gtk.CheckButton(
+                          _("Show tooltip when no window is open"))
+        self.show_tooltip_cb.connect("toggled", self.__checkbutton_toggled,
+                                 "groupbutton_show_tooltip")
+        popup_box.pack_start(self.show_tooltip_cb, False, True, padding=5)
+        
+        self.preview_size_spinbox = Gtk.HBox()
+        self.preview_size_spinbox.set_border_width(5)
+        spinlabel = Gtk.Label(_("Preview size"))
+        spinlabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(200, 50, 800, 1, 50)
+        self.preview_size_spin = Gtk.SpinButton.new(adj, 0.5, 0)
+        self.preview_size_spinbox.pack_start(spinlabel, False, True, 0)
+        self.preview_size_spinbox.pack_start(self.preview_size_spin,
+                                             False, True, padding=5)
+        adj.connect("value_changed", self.__adjustment_changed, "preview_size")
+        self.preview_size_spinbox.show_all()
+        self.preview_size_spinbox.set_no_show_all(True)
+        popup_box.pack_start(self.preview_size_spinbox, False, True, padding=5)
+        
+        self.window_title_width_spinbox = Gtk.HBox()
+        self.window_title_width_spinbox.set_border_width(5)
+        spinlabel = Gtk.Label(_("Window title width"))
+        spinlabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(200, 50, 800, 1, 50)
+        self.window_title_width_spin = Gtk.SpinButton.new(adj, 0.5, 0)
+        self.window_title_width_spinbox.pack_start(spinlabel, False, True, 0)
+        self.window_title_width_spinbox.pack_start(self.window_title_width_spin,
+                                                  False, True, padding=5)
+        adj.connect("value_changed",
+                    self.__adjustment_changed, "window_title_width")
+        self.window_title_width_spinbox.show_all()
+        self.window_title_width_spinbox.set_no_show_all(True)
+        popup_box.pack_start(self.window_title_width_spinbox, False, True, padding=5)
+
+        # Delay
+        vbox = Gtk.VBox()
+        label1 = Gtk.Label("<b><big>%s</big></b>"%_("Delay"))
+        label1.set_alignment(0,0.5)
+        label1.set_use_markup(True)
+        vbox.pack_start(label1,False, True, 0)
+        spinbox = Gtk.HBox()
+        spinlabel = Gtk.Label(_("Delay"))
+        spinlabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(0, 0, 2000, 1, 50)
+        self.delay_spin = Gtk.SpinButton.new(adj, 0.5, 0)
+        adj.connect("value_changed", self.__adjustment_changed, "popup_delay")
+        spinbox.pack_start(spinlabel, False, True, 0)
+        spinbox.pack_start(self.delay_spin, False, True, padding=5)
+        vbox.pack_start(spinbox, False, True, 0)
+
+        spinbox = Gtk.HBox()
+        spinlabel = Gtk.Label(_("Delay for switching between window lists"))
+        spinlabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(0, 0, 2000, 1, 50)
+        self.second_delay_spin = Gtk.SpinButton.new(adj, 0.5, 0)
+        adj.connect("value_changed", self.__adjustment_changed,
+                    "second_popup_delay")
+        spinbox.pack_start(spinlabel, False, True, 0)
+        spinbox.pack_start(self.second_delay_spin, False, True, padding=5)
+        vbox.pack_start(spinbox, False, True, 0)
+        popup_box.pack_start(vbox, False, True, padding=5)
+
+        # Previews
+        vbox = Gtk.VBox()
+        label1 = Gtk.Label("<b><big>%s</big></b>"%_("Previews"))
+        label1.set_alignment(0,0.5)
+        label1.set_use_markup(True)
+        vbox.pack_start(label1, False, True, 0)
+        self.preview_cb = Gtk.CheckButton(_("Show previews"))
+        self.preview_cb.connect("toggled", self.__checkbutton_toggled, "preview")
+        vbox.pack_start(self.preview_cb, False, True, 0)
+        self.preview_minimized_cb = Gtk.CheckButton(_("Show previews for minimized windows"))
+        self.preview_minimized_cb.set_tooltip_text(_("To get previews for minimized windows you need to active \"Keep previews of minimized windows\" in Compiz plugin Workarounds."))
+        self.preview_minimized_cb.connect("toggled", self.__checkbutton_toggled, "preview_minimized")
+        vbox.pack_start(self.preview_minimized_cb, False, True, 0)
+        self.preview_minimized_cb.set_no_show_all(True)
+        if self.globals.get_compiz_version() >= "0.9":
+            self.preview_minimized_cb.show()
+        popup_box.pack_start(vbox, False, True, padding=5)
+
+        # Locked list
+        vbox = Gtk.VBox()
+        label1 = Gtk.Label("<b><big>%s</big></b>"%_("Locked list"))
+        label1.set_alignment(0,0.5)
+        label1.set_use_markup(True)
+        vbox.pack_start(label1, False, True, 0)
+        self.locked_list_menu_cb = Gtk.CheckButton(
+                                    _("Show \"locked list\" option in menu"))
+        self.locked_list_menu_cb.set_tooltip_text(_("The option is only shown when a program has more than one window opened."))
+        self.locked_list_menu_cb.connect("toggled", self.__checkbutton_toggled,
+                                         "locked_list_in_menu")
+        vbox.pack_start(self.locked_list_menu_cb, False, True, 0)
+        self.locked_list_no_overlap_cb = Gtk.CheckButton(
+                    _("Maximized windows should not overlap the locked list"))
+        self.locked_list_no_overlap_cb .connect("toggled",
+                                                 self.__checkbutton_toggled,
+                                                 "locked_list_no_overlap")
+        vbox.pack_start(self.locked_list_no_overlap_cb, False, True, 0)
+        popup_box.pack_start(vbox, False, True, padding=5)
+
+        # "Select" action options frame
+        vbox = Gtk.VBox()
+        label1 = Gtk.Label("<b><big>%s</big></b>"%_("\"Select next\" behavior"))
+        label1.set_alignment(0,0.5)
+        label1.set_use_markup(True)
+        vbox.pack_start(label1, False, True, 0)
+        self.select_next_use_lastest_active_cb = Gtk.CheckButton(_("\"Select next\" selects the most recently used window in the group"))
+        self.select_next_use_lastest_active_cb.set_tooltip_text(_("If set, \"Select Next\" action selects the window that has been used most recently, otherwise it activates the next window in the window list."))
+        self.select_next_use_lastest_active_cb.connect("toggled",
+                                            self.__checkbutton_toggled,
+                                            "select_next_use_lastest_active")
+        vbox.pack_start(self.select_next_use_lastest_active_cb, False, True, 0)
+        self.select_next_activate_immediately_cb = Gtk.CheckButton(
+                                        _("Use no delay with \"Select next\""))
+        self.select_next_activate_immediately_cb.set_tooltip_text(_("If set, \"Select Next\" action selects the next window immediately without any delay"))
+        self.select_next_activate_immediately_cb.connect("toggled",
+                                            self.__checkbutton_toggled,
+                                            "select_next_activate_immediately")
+        vbox.pack_start(self.select_next_activate_immediately_cb, False, True, 0)
+
+        popup_box.pack_start(vbox, False, True, padding=5)
+
+
+        #--- Groupbutton page
+        frame = Gtk.Frame.new(_("Group button actions"))
+        frame.set_border_width(5)
+        table = Gtk.Table(True)
+        table.set_border_width(5)
+
+        self.gb_labels_and_settings = ODict((
+             (_("Left mouse button"), "groupbutton_left_click_action"),
+             (_("Shift + left mouse button"),
+                                "groupbutton_shift_and_left_click_action"),
+             (_("Middle mouse button"), "groupbutton_middle_click_action"),
+             (_("Shift + middle mouse button"),
+                                "groupbutton_shift_and_middle_click_action"),
+             (_("Right mouse button"), "groupbutton_right_click_action"),
+             (_("Shift + right mouse button"),
+                                "groupbutton_shift_and_right_click_action"),
+             (_("Scroll up"), "groupbutton_scroll_up"),
+             (_("Scroll down"), "groupbutton_scroll_down")
+                                           ))
+
+        self.gb_actions = ODict((
+              ("select", _("select")),
+              ("close all windows", _("close all windows")),
+              ("minimize all windows", _("minimize all windows")),
+              ("maximize all windows", _("maximize all windows")),
+              ("launch application", _("launch application")),
+              ("show menu", _("show menu")),
+              ("remove launcher", _("remove launcher")),
+              ("select next window", _("select next window")),
+              ("select previous window", _("select previous window")),
+              ("minimize all other groups", _("minimize all other groups")),
+              ("compiz scale windows", _("compiz scale windows")),
+              ("compiz shift windows", _("compiz shift windows")),
+              ("compiz scale all", _("compiz scale all")),
+              ("show preference dialog", _("show preference dialog")),
+              ("no action", _("no action"))
+                          ))
+
+        self.gb_combos = {}
+        for text in self.gb_labels_and_settings:
+            label = Gtk.Label(text)
+            label.set_alignment(1,0.5)
+            self.gb_combos[text] = Gtk.ComboBoxText.new()
+            for (action) in self.gb_actions.values():
+                self.gb_combos[text].append_text(action)
+            self.gb_combos[text].connect("changed", self.__cb_changed)
+
+            row = self.gb_labels_and_settings.get_index(text)
+            table.attach(label, 0, 1, row, row + 1, xpadding = 5 )
+            table.attach(self.gb_combos[text], 1,  2, row, row + 1 )
+
+        self.gb_doubleclick_checkbutton_names = [
+                            "groupbutton_left_click_double",
+                            "groupbutton_shift_and_left_click_double",
+                            "groupbutton_middle_click_double",
+                            "groupbutton_shift_and_middle_click_double",
+                            "groupbutton_right_click_double",
+                            "groupbutton_shift_and_right_click_double"]
+        self.gb_doubleclick_checkbutton = {}
+        for i in range(len(self.gb_doubleclick_checkbutton_names)):
+            name = self.gb_doubleclick_checkbutton_names[i]
+            self.gb_doubleclick_checkbutton[name] = \
+                                        Gtk.CheckButton(_("Double click"))
+            self.gb_doubleclick_checkbutton[name].connect("toggled",
+                                                self.__checkbutton_toggled, name)
+            table.attach(self.gb_doubleclick_checkbutton[name],
+                         2, 3, i, i + 1, xpadding = 5 )
+
+        frame.add(table)
+        groupbutton_box.pack_start(frame, False, True, padding=5)
+
+        # "Select" action options frame
+        hbox = Gtk.HBox()
+        frame = Gtk.Frame.new(_("\"Select\" action options"))
+        frame.set_border_width(5)
+        table = Gtk.Table(True)
+        table.set_border_width(5)
+
+        label = Gtk.Label(_("One window open"))
+        label.set_alignment(1,0.5)
+        self.select_one_cg = Gtk.ComboBoxText.new()
+        self.select_one_cg.append_text(_("select window"))
+        self.select_one_cg.append_text(_("select or minimize window"))
+        self.select_one_cg.connect("changed", self.__cb_changed)
+        table.attach(label,0,1,0,1, xpadding = 5 )
+        table.attach(self.select_one_cg,1,2,0,1)
+
+        label = Gtk.Label(_("Multiple windows open"))
+        label.set_alignment(1,0.5)
+        self.select_multiple_cg = Gtk.ComboBoxText.new()
+        self.select_multiple_cg.append_text(_("select all"))
+        self.select_multiple_cg.append_text(_("select or minimize all"))
+        self.select_multiple_cg.append_text(_("compiz scale"))
+        self.select_multiple_cg.append_text(_("cycle through windows"))
+        self.select_multiple_cg.append_text(_("show window list"))
+        self.select_multiple_cg.connect("changed", self.__cb_changed)
+        table.attach(label,0,1,1,2, xpadding = 5 )
+        table.attach(self.select_multiple_cg,1,2,1,2)
+
+        label = Gtk.Label(_("Workspace behavior"))
+        label.set_alignment(1,0.5)
+        self.select_workspace_cg = Gtk.ComboBoxText.new()
+        self.select_workspace_cg.append_text(
+                                    _("Ignore windows on other workspaces"))
+        self.select_workspace_cg.append_text(_("Switch workspace when needed"))
+        self.select_workspace_cg.append_text(
+                                    _("Move windows from other workspaces"))
+        self.select_workspace_cg.connect("changed", self.__cb_changed)
+        table.attach(label,0,1,2,3, xpadding = 5 )
+        table.attach(self.select_workspace_cg,1,2,2,3)
+
+        hbox.pack_start(table, False, True, padding=5)
+        frame.add(hbox)
+        groupbutton_box.pack_start(frame, False, True, 0)
+
+
+        #--- Plugins page
+        self.media_buttons_cb = Gtk.CheckButton(_("Use media buttons"))
+        self.media_buttons_cb.set_border_width(5)
+        self.media_buttons_cb.connect("toggled",
+                                      self.__checkbutton_toggled,
+                                      "media_buttons")
+        plugins_box.pack_start(self.media_buttons_cb, False, True, 0)
+
+        self.quicklist_cb = Gtk.CheckButton(_("Use Unity static quicklists"))
+        self.quicklist_cb.set_border_width(5)
+        self.quicklist_cb.connect("toggled",
+                                  self.__checkbutton_toggled,
+                                  "quicklist")
+        plugins_box.pack_start(self.quicklist_cb, False, True, 0)
+
+        self.unity_cb = Gtk.CheckButton(_("Use Unity counters (badges), progress bars and dynamic quicklists"))
+        self.unity_cb.set_border_width(5)
+        self.unity_cb.connect("toggled",
+                              self.__checkbutton_toggled,
+                              "unity")
+        plugins_box.pack_start(self.unity_cb, False, True, 0)
+
+        dockmanager_frame = Gtk.Frame.new(_("DockManager"))
+        dockmanager_frame.set_border_width(5)
+        dockmanager_box = Gtk.VBox()
+        dockmanager_box.set_border_width(5)
+        self.dockmanager_cb = Gtk.CheckButton(_("Use DockManager"))
+        self.dockmanager_cb.connect("toggled",
+                                    self.__checkbutton_toggled,
+                                    "dockmanager")
+        dockmanager_box.pack_start(self.dockmanager_cb, False, True, 0)
+        helpers_button = Gtk.Button(_("Helpers"))
+        helpers_button.connect("clicked", self.__open_dockmanager_settings)
+        dockmanager_box.pack_start(helpers_button, False, True, 0)
+        dockmanager_frame.add(dockmanager_box)
+        plugins_box.pack_start(dockmanager_frame, False, True, 0)
+
+
+        #--- Advanced page
+        self.ignore_workspace_cb = Gtk.CheckButton(
+                            _("Ignore windows on other viewports/workspaces"))
+        self.ignore_workspace_cb.connect("toggled", self.__checkbutton_toggled,
+                                         "show_only_current_desktop")
+        self.ignore_workspace_cb.set_border_width(5)
+        advanced_box.pack_start(self.ignore_workspace_cb, False, True, 0)
+        self.ignore_monitor_cb = Gtk.CheckButton(
+                            _("Ignore windows on other monitors"))
+        self.ignore_monitor_cb.connect("toggled", self.__checkbutton_toggled,
+                                         "show_only_current_monitor")
+        self.ignore_monitor_cb.set_border_width(5)
+        advanced_box.pack_start(self.ignore_monitor_cb, False, True, 0)
+
+        self.wine_apps_cb = Gtk.CheckButton(
+                        _("Give each wine application its own group button"))
+        self.wine_apps_cb.connect("toggled", self.__checkbutton_toggled,
+                                  "separate_wine_apps")
+        self.wine_apps_cb.set_border_width(5)
+        advanced_box.pack_start(self.wine_apps_cb, False, True, 0)
+
+        self.ooo_apps_cb = Gtk.CheckButton(
+             _("Keep open office application (Writer, Calc, etc.) separated"))
+        self.ooo_apps_cb.connect("toggled", self.__checkbutton_toggled,
+                                 "separate_ooo_apps")
+        self.ooo_apps_cb.set_border_width(5)
+        advanced_box.pack_start(self.ooo_apps_cb, False, True, 0)
+
+        self.delay_on_select_all_cb = Gtk.CheckButton(
+             _("Delay on select all (Workaround for order problems)"))
+        self.delay_on_select_all_cb.set_tooltip_text(_("Compiz can't handle the order of multiple windows that are brought up at once. This problem can be solved by adding short delays between the activation of each window."))
+        self.delay_on_select_all_cb.connect("toggled",
+                                            self.__checkbutton_toggled,
+                                            "delay_on_select_all")
+        self.delay_on_select_all_cb.set_border_width(5)
+        advanced_box.pack_start(self.delay_on_select_all_cb, False, True, 0)
+
+        # Opacify frame
+        frame = Gtk.Frame.new(_("Opacify"))
+        frame.set_border_width(5)
+        vbox = Gtk.VBox()
+        vbox.set_border_width(10)
+        self.opacify_cb = Gtk.CheckButton(_("Opacify"))
+        self.opacify_cb.set_tooltip_text(_("Opacify will make all other windows transparent when hovering a name or preview of a window in the window list."))
+        self.opacify_cb.connect("toggled", self.__checkbutton_toggled, "opacify")
+        vbox.pack_start(self.opacify_cb, False, True, 0)
+        self.opacify_group_cb = Gtk.CheckButton(_("Opacify group"))
+        self.opacify_group_cb.set_tooltip_text(_("Opacify group will make all other groups transparent when hovering a group button."))
+        self.opacify_group_cb.connect("toggled", self.__checkbutton_toggled,
+                                      "opacify_group")
+        vbox.pack_start(self.opacify_group_cb, False, True, 0)
+        self.opacify_fade_cb = Gtk.CheckButton(_("Use smooth fade in/out"))
+        self.opacify_fade_cb.connect("toggled",
+                                     self.__checkbutton_toggled, "opacify_fade")
+        vbox.pack_start(self.opacify_fade_cb, False, True, 0)
+
+        scalebox = Gtk.HBox()
+        scalelabel = Gtk.Label(_("Opacity"))
+        scalelabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(0, 0, 100, 1, 10, 0)
+        self.opacify_scale = Gtk.HScale.new(adj)
+        self.opacify_scale.set_digits(0)
+        self.opacify_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        adj.connect("value_changed", self.__adjustment_changed, "opacify_alpha")
+        scalebox.pack_start(scalelabel, False, True, 0)
+        scalebox.pack_start(self.opacify_scale, True, True, 0)
+        vbox.pack_start(scalebox, False, True, 0)
+
+        scalebox = Gtk.HBox()
+        scalelabel = Gtk.Label(_("Smoothness"))
+        scalelabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(2, 2, 20, 1, 10, 0)
+        self.opacify_smoothness_scale = Gtk.HScale.new(adj)
+        self.opacify_smoothness_scale.set_draw_value(False)
+        adj.connect("value_changed",
+                    self.__adjustment_changed, "opacify_smoothness")
+        scalebox.pack_start(scalelabel, False, True, 0)
+        scalebox.pack_start(self.opacify_smoothness_scale, True, True, 0)
+        scalelabel = Gtk.Label(_("Duration"))
+        scalelabel.set_alignment(0,0.5)
+        adj = Gtk.Adjustment(0, 30, 500, 1, 10, 0)
+        self.opacify_duration_scale = Gtk.HScale.new(adj)
+        self.opacify_duration_scale.set_draw_value(False)
+        adj.connect("value_changed", self.__adjustment_changed, "opacify_duration")
+        scalebox.pack_start(scalelabel, False, True, 0)
+        scalebox.pack_start(self.opacify_duration_scale, True, True, 0)
+        vbox.pack_start(scalebox, False, True, 0)
+
+        frame.add(vbox)
+        advanced_box.pack_start(frame, False, False, padding=5)
+
+        # Global keyboard shortcuts frame
+        frame = Gtk.Frame.new(_("Global Keyboard Shortcuts"))
+        frame.set_border_width(5)
+        table = Gtk.Table(True)
+
+        self.gkeys = ODict((
+                       ("gkeys_select_next_group", _("Select next group")),
+                       ("gkeys_select_previous_group",
+                                        _("Select previous group")),
+                       ("gkeys_select_next_window",
+                                        _("Select next window in group")),
+                       ("gkeys_select_previous_window",
+                                        _("Select previous window in group"))
+                     ))
+        self.gkeys_checkbuttons = {}
+        self.gkeys_entries = {}
+        self.gkeys_apply_buttons = {}
+        self.gkeys_clear_buttons = {}
+        for i in range(0, len(self.gkeys)):
+            s = self.gkeys.keys()[i]
+            t = self.gkeys[s]
+            self.gkeys_checkbuttons[s] = Gtk.CheckButton(t)
+            self.gkeys_checkbuttons[s].connect("toggled",
+                                               self.__checkbutton_toggled, s)
+
+            self.gkeys_entries[s] = Gtk.Entry()
+
+            self.gkeys_apply_buttons[s] = Gtk.Button()
+            image = Gtk.Image.new_from_stock(Gtk.STOCK_APPLY,
+                                             Gtk.IconSize.SMALL_TOOLBAR)
+            self.gkeys_apply_buttons[s].add(image)
+            self.gkeys_apply_buttons[s].connect("clicked", self.__apply_gkey, s)
+
+            self.gkeys_clear_buttons[s] = Gtk.Button()
+            image = Gtk.Image.new_from_stock(Gtk.STOCK_CLEAR,
+                                             Gtk.IconSize.SMALL_TOOLBAR)
+            self.gkeys_clear_buttons[s].add(image)
+            self.gkeys_clear_buttons[s].connect("clicked", self.__reset_gkey, s)
+
+            table.attach(self.gkeys_checkbuttons[s], 0, 1, i, i + 1,
+                         xoptions = Gtk.AttachOptions.FILL, xpadding = 5)
+            table.attach(self.gkeys_entries[s], 1, 2, i, i + 1,
+                         xoptions = Gtk.AttachOptions.FILL)
+            table.attach(self.gkeys_apply_buttons[s], 2, 3, i, i + 1,
+                         xoptions = Gtk.AttachOptions.FILL)
+            table.attach(self.gkeys_clear_buttons[s], 3, 4, i, i + 1,
+                         xoptions = Gtk.AttachOptions.FILL)
+        label = Gtk.Label(_("Note! Compiz keyboard shortcuts will override these."))
+        table.attach(label,0,4,i+1, i+2, xoptions = Gtk.AttachOptions.FILL)
+        self.gkeys_skip_launchers_cb = Gtk.CheckButton(_("Skip pinned apps without open windows"))
+        self.gkeys_skip_launchers_cb.connect("toggled",
+                                    self.__checkbutton_toggled,
+                                    "gkeys_select_next_group_skip_launchers")
+        table.attach(self.gkeys_skip_launchers_cb, 0, 4, i + 3, i + 4,
+                     xoptions = Gtk.AttachOptions.FILL)
+        self.number_shortcuts_cb = Gtk.CheckButton(_("Use Unity style number shortcuts (Super+number)"))
+        self.number_shortcuts_cb.connect("toggled",
+                                             self.__checkbutton_toggled,
+                                             "use_number_shortcuts")
+        table.attach(self.number_shortcuts_cb, 0, 4, i + 4, i + 5,
+                     xoptions = Gtk.AttachOptions.FILL)
+        table.set_border_width(5)
+        frame.add(table)
+        advanced_box.pack_start(frame, False, False, padding=5)
+
+        #--- Dock page
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Type"))
+        hbox.pack_start(label, False, False, 0)
+        self.dock_mode_box = Gtk.ComboBoxText.new()
+        for pos in (_("panel"), _("corner"), _("centered")):
+            self.dock_mode_box.append_text(pos)
+        self.dock_mode_box.connect("changed", self.__cb_changed)
+        hbox.pack_start(self.dock_mode_box, False, True, 0)
+        self.end_decoration_cb = Gtk.CheckButton()
+        self.end_decoration_cb.connect("toggled", self.__checkbutton_toggled,
+                                       "dock/end_decorations")
+        hbox.pack_start(self.end_decoration_cb, False, True, padding=5)
+        dock_box.pack_start(hbox, False, True, 0)
+        
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Position"))
+        hbox.pack_start(label, False, False, 0)
+        self.dock_position_box = Gtk.ComboBoxText.new()
+        for pos in (_("left"), _("right"), _("top"), _("bottom")):
+            self.dock_position_box.append_text(pos)
+        self.dock_position_box.connect("changed", self.__cb_changed)
+        hbox.pack_start(self.dock_position_box, False, True, 0)
+        dock_box.pack_start(hbox, False, True, 0)
+
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Behavior"))
+        hbox.pack_start(label, False, False, 0)
+        self.dock_behavior_box = Gtk.ComboBoxText.new()
+        for pos in (_("panel"), _("standard"), _("dodge windows"),
+                    _("dodge active window"), _("always autohide")):
+            self.dock_behavior_box.append_text(pos)
+        self.dock_behavior_box.connect("changed", self.__cb_changed)
+        hbox.pack_start(self.dock_behavior_box, False, True, 0)
+        dock_box.pack_start(hbox, False, True, 0)
+
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Size"))
+        hbox.pack_start(label, False, True, 0)
+        adj = Gtk.Adjustment(self.globals.settings["dock/size"],
+                             16, 100, 1, 0, 0)
+        adj.connect("value-changed", self.__adjustment_changed, "dock/size")
+        self.dock_size_spin = Gtk.SpinButton.new(adj, 0.5, 0)
+        hbox.pack_start(self.dock_size_spin, False, True, 0)
+        dock_box.pack_start(hbox, False, True, 0)
+
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Offset"))
+        label.set_tooltip_text(_("Use this if the dock isn't able to automatically aviod overlapping with other panels"))
+        hbox.pack_start(label, False, True, 0)
+        adj = Gtk.Adjustment(self.globals.settings["dock/offset"],
+                             0, 500, 1, 0, 0)
+        adj.connect("value-changed", self.__adjustment_changed, "dock/offset")
+        self.dock_offset_spin = Gtk.SpinButton.new(adj, 0.5, 0)
+        hbox.pack_start(self.dock_offset_spin, False, True, 0)
+        dock_box.pack_start(hbox, False, True, 0)
+
+        hbox = Gtk.HBox()
+        label = Gtk.Label(_("Dock theme:"))
+        label.set_alignment(1,0.5)
+        self.dock_theme_combo = Gtk.ComboBoxText.new()
+        theme_names = self.dock_themes.keys()
+        theme_names.sort()
+        for theme in theme_names:
+            self.dock_theme_combo.append_text(theme)
+        button = Gtk.Button()
+        image = Gtk.Image.new_from_stock(Gtk.STOCK_REFRESH,
+                                         Gtk.IconSize.SMALL_TOOLBAR)
+        button.add(image)
+        button.connect("clicked", self.__set_dock_theme)
+        hbox.pack_start(label, False, True, padding=5)
+        hbox.pack_start(self.dock_theme_combo, False, True, 0)
+        hbox.pack_start(button, False, True, 0)
+        dock_box.pack_start(hbox, False, True, padding=5)
+        
+        #Dock Colors
+        frame = Gtk.Frame.new(_("Colors"))
+        frame.set_border_width(5)
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Background color"))
+        self.dock_bg_color_button = Gtk.ColorButton()
+        self.dock_bg_color_button.set_use_alpha(True)
+        self.dock_bg_color_button.set_title(_("Background color"))
+        self.dock_bg_color_button.connect("color-set",
+                                          self.__dock_color_set, "bg_color")
+        self.dock_bg_color_clear = Gtk.Button()
+        image = Gtk.Image.new_from_stock(Gtk.STOCK_CLEAR,
+                                         Gtk.IconSize.SMALL_TOOLBAR)
+        self.dock_bg_color_clear .add(image)
+        self.dock_bg_color_clear .connect("clicked",
+                                          self.__dock_color_reset, "bg_color")
+        hbox.pack_start(label, False, True, 0)
+        hbox.pack_start(self.dock_bg_color_button, False, True, 0)
+        hbox.pack_start(self.dock_bg_color_clear, False, True, 0)
+        self.dock_bar2_box = Gtk.HBox()
+        self.dock_bar2_box.set_spacing(5)
+        label = Gtk.Label(_("Second background color"))
+        label.set_alignment(1, 0.5)
+        self.bar2_bg_color_button = Gtk.ColorButton()
+        self.bar2_bg_color_button.set_use_alpha(True)
+        self.bar2_bg_color_button.set_title(_("Second background color"))
+        self.bar2_bg_color_button.connect("color-set", self.__dock_color_set,
+                                          "bar2_bg_color")
+        self.bar2_bg_color_clear = Gtk.Button()
+        image = Gtk.Image.new_from_stock(Gtk.STOCK_CLEAR,
+                                         Gtk.IconSize.SMALL_TOOLBAR)
+        self.bar2_bg_color_clear.add(image)
+        self.bar2_bg_color_clear.connect("clicked", self.__dock_color_reset,
+                                         "bar2_bg_color")
+        self.dock_bar2_box.pack_start(label, True, True, 0)
+        self.dock_bar2_box.pack_start(self.bar2_bg_color_button, False, True, 0)
+        self.dock_bar2_box.pack_start(self.bar2_bg_color_clear, False, True, 0)
+        hbox.pack_start(self.dock_bar2_box, True, True, 0)
+        frame.add(hbox)
+        dock_box.pack_start(frame, False, True, 0)
+        
+
+        #--- AWN page
+        hbox = Gtk.HBox()
+        hbox.set_border_width(5)
+        hbox.set_spacing(5)
+        label = Gtk.Label(_("Dodge behavior"))
+        hbox.pack_start(label, False, False, 0)
+        self.awn_behavior_box = Gtk.ComboBoxText.new()
+        for beh in (_("disabled"), _("dodge windows"),
+                    _("dodge active window")):
+            self.awn_behavior_box.append_text(beh)
+        self.awn_behavior_box.connect("changed", self.__cb_changed)
+        hbox.pack_start(self.awn_behavior_box, False, True, 0)
+        awn_box.pack_start(hbox, False, True, 0)
+        label = Gtk.Label(_("AWN behavior modes \"Intellihide\" and \"Avoid windows\" doesn't work if the awn applet Taskmanager is not running. Set dodge behavior here instead."))
+        label.set_line_wrap(True)
+        awn_box.pack_start(label, False, True, 0)
+        
+
+        notebook.append_page(awn_box, Gtk.Label(_("AWN")))
+        notebook.append_page(dock_box, Gtk.Label(_("Dock")))
+        notebook.append_page(dock_applets_box, Gtk.Label(_("Dock Applets")))
+        notebook.append_page(appearance_box, Gtk.Label(_("Appearance")))
+        notebook.append_page(popup_box, Gtk.Label(_("Window List")))
+        notebook.append_page(groupbutton_box, Gtk.Label(_("Group Button")))
+        notebook.append_page(windowbutton_box, Gtk.Label(_("Window Item")))
+        notebook.append_page(plugins_box, Gtk.Label(_("Plugins")))
+        notebook.append_page(advanced_box, Gtk.Label(_("Advanced")))
+        ca.pack_start(notebook, True, True, 0)
+        self.__update()
+        self.dialog.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+        self.dialog.show_all()
+        awn = False
+        dock = False
+        for name in dbus.SessionBus().list_names():
+            if str(name).startswith("org.dockbar.DockX"):
+                dock = True
+            if str(name).startswith("org.dockbar.AWNapplet"):
+                awn = True
+        notebook.set_current_page(0)
+        if not dock:
+            dock_box.hide()
+            dock_applets_box.hide()
+        if not awn:
+            awn_box.hide()
+
+    def __load_theme(self):
+        self.themes = self.__find_themes()
+        default_theme_path = None
+        for theme, path in self.themes.items():
+            if theme.lower() == self.globals.settings["theme"].lower():
+                self.theme = Theme(path)
+                break
+            if theme.lower() == self.globals.DEFAULT_SETTINGS["theme"].lower():
+                default_theme_path = path
+        else:
+            if default_theme_path:
+                # If the current theme according to gconf couldn't be found,
+                # the default theme is used.
+                self.theme = Theme(default_theme_path)
+            else:
+                self.theme = None
+
+        if self.theme is not None:
+            self.theme_colors = self.theme.get_default_colors()
+            self.theme_alphas = self.theme.get_default_alphas()
+            self.globals.theme_name = self.theme.get_name()
+            self.globals.update_popup_style(self.theme.get_name(),
+                                            self.theme.default_popup_style)
+            self.globals.update_colors(self.theme.get_name(),
+                                       self.theme.get_default_colors(),
+                                       self.theme.get_default_alphas())
+        else:
+            self.theme_colors = {}
+            self.theme_alphas = {}
+            self.globals.update_colors(None)
+
+    def __find_themes(self):
+        # Reads the themes from /usr/share/dockbarx/themes and
+        # ~/.dockbarx/themes and returns a dict of the theme names
+        # and paths so that a theme can be loaded.
+        themes = {}
+        theme_paths = []
+        homeFolder = os.path.expanduser("~")
+        theme_folder = homeFolder + "/.dockbarx/themes"
+        dirs = ["/usr/share/dockbarx/themes", theme_folder]
+        for dir in dirs:
+            if os.path.exists(dir) and os.path.isdir(dir):
+                for f in os.listdir(dir):
+                    if f[-7:] == ".tar.gz":
+                        theme_paths.append(dir+"/"+f)
+        for theme_path in theme_paths:
+            try:
+                name = Theme.check(theme_path)
+            except Exception, detail:
+                print "Error loading theme from %s"%theme_path
+                print detail
+                name = None
+            if name is not None:
+                name = str(name)
+                themes[name] = theme_path
+        if not themes:
+            messag = _("No working themes found in /usr/share/dockbarx/themes or ~/.dockbarx/themes")
+            flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+            md = gtk.MessageDialog(self.dialog,
+                                   flags,
+                                   gtk.MESSAGE_ERROR,
+                                   gtk.BUTTONS_CLOSE,
+                                   message)
+            md.run()
+            md.destroy()
+        return themes
+
+
+    def __update(self, arg=None):
+        """Set widgets according to settings."""
+
+        # Attention notification
+        settings_attention = self.globals.settings[
+                                    "groupbutton_attention_notification_type"]
+        if settings_attention == "compwater":
+            self.rb1_1.set_active(True)
+        elif settings_attention == "blink":
+            self.rb1_2.set_active(True)
+        elif settings_attention == "red":
+            self.rb1_3.set_active(True)
+        elif settings_attention == "nothing":
+            self.rb1_4.set_active(True)
+
+        # Menu style
+        self.old_menu_cb.set_active(self.globals.settings["old_menu"])
+
+        # Badge and progress bar
+        custom_font = self.globals.settings["badge_use_custom_font"]
+        self.custom_badge_cb.set_active(custom_font)
+        self.badge_font_button.set_sensitive(custom_font)
+        self.badge_font_button.set_font_name(
+                                        self.globals.settings["badge_font"])
+        for i in (0, 1):
+            s = ("badge_custom_fg_color", "badge_custom_bg_color")[i]
+            active = self.globals.settings[s]
+            self.custom_badge_color_cbs[i].set_active(active)
+            self.badge_color_buttons[i].set_sensitive(active)
+            s = ("badge_fg", "badge_bg")[i]
+            color = Gdk.color_parse(self.globals.settings[s + "_color"])
+            self.badge_color_buttons[i].set_color(color)
+            alpha = self.globals.settings[s + "_alpha"] * 256
+            self.badge_color_buttons[i].set_alpha(alpha)
+            
+        for i in (0, 1):
+            s = ("progress_custom_fg_color", "progress_custom_bg_color")[i]
+            active = self.globals.settings[s]
+            self.custom_progress_color_cbs[i].set_active(active)
+            self.progress_color_buttons[i].set_sensitive(active)
+            s = ("progress_fg", "progress_bg")[i]
+            color = Gdk.color_parse(self.globals.settings[s + "_color"])
+            self.progress_color_buttons[i].set_color(color)
+            alpha = self.globals.settings[s + "_alpha"] * 256
+            self.progress_color_buttons[i].set_alpha(alpha)
+
+        # Popup
+        self.delay_spin.set_value(self.globals.settings["popup_delay"])
+        self.second_delay_spin.set_value(
+                                 self.globals.settings["second_popup_delay"])
+        self.reorder_window_list_cb.set_active(
+                                self.globals.settings["reorder_window_list"])
+        self.no_popup_cb.set_active(
+                            self.globals.settings["no_popup_for_one_window"])
+        self.show_tooltip_cb.set_active(
+                            self.globals.settings["groupbutton_show_tooltip"])
+
+        # Locked list
+        self.locked_list_menu_cb.set_active(
+                                self.globals.settings["locked_list_in_menu"])
+        self.locked_list_no_overlap_cb.set_active(
+                            self.globals.settings["locked_list_no_overlap"])
+
+        # Group button keys
+        for cb_name, setting_name in self.gb_labels_and_settings.items():
+            value = self.gb_actions[self.globals.settings[setting_name]]
+            combobox = self.gb_combos[cb_name]
+            model = combobox.get_model()
+            for i in range(len(combobox.get_model())):
+                if model[i][0] == value:
+                    combobox.set_active(i)
+                    break
+
+        # Window item keys
+        for cb_name, setting_name in self.wb_labels_and_settings.items():
+            value = self.wb_actions[self.globals.settings[setting_name]]
+            combobox = self.wb_combos[cb_name]
+            model = combobox.get_model()
+            for i in range(len(combobox.get_model())):
+                if model[i][0] == value:
+                    combobox.set_active(i)
+                    break
+
+        for name in self.gb_doubleclick_checkbutton_names:
+            self.gb_doubleclick_checkbutton[name].set_active(
+                                                self.globals.settings[name])
+
+        for name in self.wb_close_popup_checkbutton_names:
+            self.wb_close_popup_checkbutton[name].set_active(
+                                                self.globals.settings[name])
+
+        # Show close button
+        self.show_close_button_cb.set_active(
+                                self.globals.settings["show_close_button"])
+
+        # Opacify
+        self.opacify_cb.set_active(self.globals.settings["opacify"])
+        self.opacify_group_cb.set_active(
+                                self.globals.settings["opacify_group"])
+        self.opacify_fade_cb.set_active(self.globals.settings["opacify_fade"])
+        self.opacify_scale.set_value(self.globals.settings["opacify_alpha"])
+        self.opacify_smoothness_scale.set_value(
+                                self.globals.settings["opacify_smoothness"])
+        self.opacify_duration_scale.set_value(
+                                self.globals.settings["opacify_duration"])
+
+        opacify = self.globals.settings["opacify"]
+        fade = self.globals.settings["opacify_fade"]
+        self.opacify_group_cb.set_sensitive(opacify)
+        self.opacify_fade_cb.set_sensitive(opacify)
+        self.opacify_scale.set_sensitive(opacify)
+        self.opacify_duration_scale.set_sensitive(opacify and fade)
+        self.opacify_smoothness_scale.set_sensitive(opacify and fade)
+
+        # Plugins
+        self.media_buttons_cb.set_active(
+                            self.globals.settings["media_buttons"])
+        self.quicklist_cb.set_active(
+                            self.globals.settings["quicklist"])
+        self.unity_cb.set_active(self.globals.settings["unity"])
+        dockmanager = self.globals.settings["dockmanager"]
+        self.dockmanager_cb.set_active(dockmanager)
+
+        # Colors and settings
+        self.theme_settings_frame.set_label(_("Settings and colors for %s") % \
+                                            self.globals.theme_name)
+        if self.theme:
+            self.theme_colors = self.theme.get_default_colors()
+            self.theme_alphas = self.theme.get_default_alphas()
+        else:
+            self.theme_colors = {}
+            self.theme_alphas = {}
+
+        for i in range(1, 9):
+            c = "color%s"%i
+            a = c+"_alpha"
+            color = Gdk.color_parse(self.globals.colors[c])
+            self.color_buttons[c].set_color(color)
+            #Alpha
+            if a in self.globals.colors \
+            and not (c in self.theme_alphas \
+                     and "no" in self.theme_alphas[c]):
+                alpha = self.globals.colors[a] * 256
+                self.color_buttons[c].set_use_alpha(True)
+                self.color_buttons[c].set_alpha(alpha)
+            else:
+                self.color_buttons[c].set_use_alpha(False)
+
+        #Select action
+        model = self.select_one_cg.get_model()
+        sow = {
+               "select window": _("select window"),
+               "select or minimize window": _("select or minimize window")
+              }[self.globals.settings["select_one_window"].lower()]
+        for i in range(len(self.select_one_cg.get_model())):
+                if model[i][0] == sow:
+                    self.select_one_cg.set_active(i)
+                    break
+
+        model = self.select_multiple_cg.get_model()
+        smw = {
+                "select all": _("select all"),
+                "select or minimize all": _("select or minimize all"),
+                "compiz scale": _("compiz scale"),
+                "cycle through windows": _("cycle through windows"),
+                "show popup": _("show window list")
+              }.get(self.globals.settings["select_multiple_windows"].lower())
+        for i in range(len(self.select_multiple_cg.get_model())):
+                if model[i][0] == smw:
+                    self.select_multiple_cg.set_active(i)
+                    break
+
+        model = self.select_workspace_cg.get_model()
+        wso = {
+               "ignore":_("Ignore windows on other workspace"),
+               "switch":_("Switch workspace when needed"),
+               "move":_("Move windows from other workspaces")
+              }.get(self.globals.settings["workspace_behavior"].lower())
+        for i in range(len(self.select_workspace_cg.get_model())):
+                if model[i][0] == wso:
+                    self.select_workspace_cg.set_active(i)
+                    break
+
+        self.select_next_activate_immediately_cb.set_active(
+                    self.globals.settings["select_next_activate_immediately"])
+        self.select_next_activate_immediately_cb.set_sensitive(
+                    not self.globals.settings["reorder_window_list"])
+        self.select_next_use_lastest_active_cb.set_active(
+                    self.globals.settings["select_next_use_lastest_active"])
+        self.select_next_use_lastest_active_cb.set_sensitive(
+                    not self.globals.settings["reorder_window_list"])
+
+        # Themes
+        model = self.theme_combo.get_model()
+        for i in range(len(self.theme_combo.get_model())):
+            if model[i][0].lower() == self.globals.settings["theme"].lower():
+                self.theme_combo.set_active(i)
+                break
+
+        # Popup styles
+        model = self.popup_style_combo.get_model()
+        for i in range(len(self.popup_style_combo.get_model())):
+            file_name = self.popup_styles[model[i][0]]
+            if file_name == self.globals.popup_style_file:
+                self.popup_style_combo.set_active(i)
+                break
+        else:
+            self.popup_style_combo.set_active(-1)
+
+        # Previews
+        self.preview_cb.set_active(self.globals.settings["preview"])
+        self.preview_cb.set_active(self.globals.settings["preview"])
+        self.preview_minimized_cb.set_active(
+                                   self.globals.settings["preview_minimized"])
+        self.preview_size_spin.set_value(self.globals.settings["preview_size"])
+        self.window_title_width_spin.set_value(
+                                    self.globals.settings["window_title_width"])
+        if self.globals.settings["preview"]:
+            self.preview_size_spinbox.show()
+            self.window_title_width_spinbox.hide()
+        else:
+            self.preview_size_spinbox.hide()
+            self.window_title_width_spinbox.show()
+        
+        # Advanced page stuff
+        self.ignore_workspace_cb.set_active(
+                            self.globals.settings["show_only_current_desktop"])
+        self.ignore_monitor_cb.set_sensitive(
+                            self.globals.settings["show_only_current_desktop"])
+        self.ignore_monitor_cb.set_active(
+                            self.globals.settings["show_only_current_monitor"])
+        self.wine_apps_cb.set_active(
+                            self.globals.settings["separate_wine_apps"])
+        self.ooo_apps_cb.set_active(self.globals.settings["separate_ooo_apps"])
+        self.delay_on_select_all_cb.set_active(
+                            self.globals.settings["delay_on_select_all"])
+
+        for s in self.gkeys:
+            self.gkeys_checkbuttons[s].set_active(self.globals.settings[s])
+            self.gkeys_entries[s].set_text(
+                                    self.globals.settings["%s_keystr"%s])
+        self.gkeys_skip_launchers_cb.set_active(
+               self.globals.settings["gkeys_select_next_group_skip_launchers"])
+        self.number_shortcuts_cb.set_active(
+                                self.globals.settings["use_number_shortcuts"])
+
+        # Dock page
+        self.dock_size_spin.set_value(self.globals.settings["dock/size"])
+        self.dock_offset_spin.set_value(self.globals.settings["dock/offset"])
+        self.end_decoration_cb.set_active(
+                                self.globals.settings["dock/end_decorations"])
+        if self.globals.settings["dock/mode"].lower() == "centered":
+            self.dock_offset_spin.set_sensitive(False)
+        else:
+            self.dock_offset_spin.set_sensitive(True)
+        model = self.dock_mode_box.get_model()
+        for i in range(len(model)):
+            mode = self.globals.settings["dock/mode"].lower()
+            if model[i][0].lower() == _(mode):
+                self.dock_mode_box.set_active(i)
+                break
+        if mode == "panel":
+            self.end_decoration_cb.set_label(_("Show corner decorations"))
+            self.end_decoration_cb.show()
+        elif mode == "corner":
+            self.end_decoration_cb.set_label(
+                                        _("Show decorations in both corners"))
+            self.end_decoration_cb.show()
+        else:
+            self.end_decoration_cb.hide()
+        model = self.dock_position_box.get_model()
+        for i in range(len(model)):
+            pos = self.globals.settings["dock/position"].lower()
+            if model[i][0].lower() == _(pos):
+                self.dock_position_box.set_active(i)
+                break
+        model = self.dock_behavior_box.get_model()
+        for i in range(len(model)):
+            beh = self.globals.settings["dock/behavior"].lower()
+            if model[i][0].lower() == _(beh):
+                self.dock_behavior_box.set_active(i)
+                break
+        # Dock Themes
+        model = self.dock_theme_combo.get_model()
+        for i in range(len(self.dock_theme_combo.get_model())):
+            file_name = self.dock_themes[model[i][0]]
+            if file_name == self.globals.settings["dock/theme_file"]:
+                self.dock_theme_combo.set_active(i)
+                break
+        #Dock Colors
+        color = Gdk.color_parse(self.globals.dock_colors["bg_color"])
+        alpha = self.globals.dock_colors["bg_alpha"] * 256
+        self.dock_bg_color_button.set_color(color)
+        self.dock_bg_color_button.set_alpha(alpha)
+        color = Gdk.color_parse(self.globals.dock_colors["bar2_bg_color"])
+        alpha = self.globals.dock_colors["bar2_bg_alpha"] * 256
+        self.bar2_bg_color_button.set_color(color)
+        self.bar2_bg_color_button.set_alpha(alpha)
+        if int(self.dock_theme.get("use_bar2", False)):
+            self.dock_bar2_box.show()
+        else:
+            self.dock_bar2_box.hide()
+        
+        # Awn
+        model = self.awn_behavior_box.get_model()
+        for i in range(len(model)):
+            beh = self.globals.settings["awn/behavior"].lower()
+            if model[i][0].lower() == _(beh):
+                self.awn_behavior_box.set_active(i)
+                break
+
+    def __dialog_close(self,par1,par2):
+        self.dialog.destroy()
+        Gtk.main_quit()
+
+    def __rb_toggled(self,button,par1):
+        # Read the value of the toggled radio button and write to gconf
+        rb1_toggled = False
+
+        if par1 == "rb1_blink" and button.get_active():
+            value = "blink"
+            rb1_toggled = True
+        if par1 == "rb1_compwater" and button.get_active():
+            value = "compwater"
+            rb1_toggled = True
+        if par1 == "rb1_red" and button.get_active():
+            value = "red"
+            rb1_toggled = True
+        if par1 == "rb1_nothing" and button.get_active():
+            value = "nothing"
+            rb1_toggled = True
+
+        if rb1_toggled and value != \
+              self.globals.settings["groupbutton_attention_notification_type"]:
+            GSETTINGS_CLIENT.set_string("groupbutton-attention-notification-type", value)
+
+    def __checkbutton_toggled(self,button,name):
+        # Read the value of the toggled check button/box and write to gconf
+        if button.get_active() != self.globals.settings[name]:
+            GSETTINGS_CLIENT.set_boolean(name.replace("_", "-"), button.get_active())
+
+        if name == "preview" and button.get_active():
+            self.__show_preview_dialogs()
+        #~ elif name == "preview_minimized" and button.get_active():
+            #~ self.__show_preview_minimized_dialogs()
+        elif name == "opacify" and button.get_active():
+            self.__show_opacify_dialog()
+
+
+    def __cb_changed(self, combobox):
+        # Read the value of the combo box and write to gconf
+        value = combobox.get_active_text()
+        if value is None:
+            return
+        # Groupbutton settings
+        for name, cb in self.gb_combos.items():
+            if cb == combobox:
+                setting_name = self.gb_labels_and_settings[name]
+                for (action, translation) in self.gb_actions.items():
+                    if value == translation:
+                        if action != self.globals.settings[setting_name]:
+                            GSETTINGS_CLIENT.set_string(settings_name.replace("_", "-"), action)
+                        break
+                break
+
+        # Window item settings
+        for name, cb in self.wb_combos.items():
+            if cb == combobox:
+                setting_name = self.wb_labels_and_settings[name]
+                for (action, translation) in self.wb_actions.items():
+                    if value == translation:
+                        if action != self.globals.settings[setting_name]:
+                            GSETTINGS_CLIENT.set_string(setting_name.replace("_", "-"), action)
+                        break
+                break
+
+        if combobox == self.theme_combo:
+            if value != self.globals.settings["theme"]:
+                GSETTINGS_CLIENT.set_string(theme.replace("_", "-"), value)
+
+        if combobox == self.select_one_cg:
+            sod = {
+               _("select window"): "select window",
+               _("select or minimize window"): "select or minimize window"
+              }
+            if sod[value] != self.globals.settings["select_one_window"]:
+                GSETTINGS_CLIENT.set_string("select-one-window", sod[value])
+
+
+        if combobox == self.select_multiple_cg:
+            smd = {
+                _("select all"): "select all",
+                _("select or minimize all"): "select or minimize all",
+                _("compiz scale"): "compiz scale",
+                _("cycle through windows"): "cycle through windows",
+                _("show window list"): "show popup"
+              }
+            if smd[value] != self.globals.settings["select_multiple_windows"]:
+                GSETTINGS_CLIENT.set_string("select-multiple-windows")
+
+        if combobox == self.select_workspace_cg:
+            wso={
+                 _("Ignore windows on other workspaces"):"ignore",
+                 _("Switch workspace when needed"):"switch",
+                 _("Move windows from other workspaces"):"move"
+                }
+            if wso[value] != self.globals.settings["workspace_behavior"]:
+                GSETTINGS_CLIENT.set_string("workspace-behavior", wso[value])
+
+        if combobox == self.dock_position_box:
+            pos = ("left", "right", "top", "bottom")
+            for p in pos:
+                if value == _(p) and p != self.globals.settings["dock/size"]:
+                    GSETTINGS_DOCK.set_string("position", p)
+
+        if combobox == self.dock_mode_box:
+            pos = ("panel", "centered", "corner")
+            for p in pos:
+                if value == _(p) and p != self.globals.settings["dock/mode"]:
+                    GSETTINGS_DOCK.set_string("mode", p)
+
+        if combobox == self.dock_behavior_box:
+            pos = ("panel", "standard", "dodge windows",
+                   "dodge active window", "always autohide")
+            for p in pos:
+                if value == _(p) and \
+                   p != self.globals.settings["dock/behavior"]:
+                   GSETTINGS_DOCK.set_string("behavior", p)
+
+        if combobox == self.awn_behavior_box:
+            pos = ("disabled", "dodge windows",
+                   "dodge active window")
+            for p in pos:
+                if value == _(p) and \
+                   p != self.globals.settings["awn/behavior"]:
+                   GSETTINGS_AWN.set_string("behavior", p)
+
+    def get_settings_from_path(self, path):
+        entry = path
+        gst = GSETTINGS_CLIENT
+        try:
+            if entry.split("/")[-2] == "dock":
+                gst = gst.get_child("dock")
+                try:
+                    if entry.split("/")[-3] == "theme":
+                        gst = gst.get_child("theme")
+                except:
+                    return gst
+            elif entry.split("/")[-2] == "awn":
+                gst = gst.get_child("awn")
+            elif entry.split("/")[-2] == "applets":
+                gst = gst.get_child("applets")
+            elif entry.split("/")[-2] == "themes":
+                gst = gst.get_child("themes")
+            elif len(entry.split("/")) == 4 and \
+                entry.split("/")[-2] == "dockbarx":
+                return gst
+            else:
+                return None
+        except:
+            return gst
+        return gst
+
+    def __adjustment_changed(self, widget, setting):
+        # Read the value of the adjustment and write to gconf
+        value = int(widget.get_value())
+        if value != self.globals.settings[setting]:
+            gst = self.get_settings_from_path(setting)
+            key = setting.split("/")[-1]
+            gst.set_int(key.replace("_", "-"), value)
+            #GSETTINGS_CLIENT.set_int(setting.replace("_", "-"), value)
+
+    def __bp_color_set(self, button, c):
+        # Read the value from color (and alpha) and write
+        # it as 8-bit/channel hex string for gconf.
+        # (Alpha is written like int (0-255).)
+        if not self.theme:
+            return
+        color_string = self.globals.settings[c + "_color"]
+        color = button.get_color()
+        cs = color.to_string()
+        # cs has 16-bit per color, we want 8.
+        new_color = cs[0:3] + cs[5:7] + cs[9:11]
+        if new_color != color_string:
+            #GCONF_CLIENT.set_string(GCONF_DIR + "/" + c + "_color", new_color)
+            GSETTINGS_CLIENT.set_string(c.replace("_", "-") + "-color", new_color)
+        alpha = self.globals.settings[c + "_alpha"]
+        new_alpha = min(int(round(button.get_alpha() / 256.0)), 255)
+        if new_alpha != alpha:
+            #GCONF_CLIENT.set_int(GCONF_DIR + "/" + c + "_alpha", new_alpha)
+            GSETTINGS_CLIENT.set_string(c.replace("_", "-") + "-alpha", new_alpha)
+            
+
+    def __color_set(self, button, c):
+        # Read the value from color (and alpha) and write
+        # it as 8-bit/channel hex string for gconf.
+        # (Alpha is written like int (0-255).)
+        if not self.theme:
+            return
+        color_string = self.globals.colors[c]
+        color = button.get_color()
+        cs = color.to_string()
+        # cs has 16-bit per color, we want 8.
+        new_color = cs[0:3] + cs[5:7] + cs[9:11]
+        theme_name = self.theme.get_name().replace(" ", "_").encode()
+        try:
+            theme_name = theme_name.translate(None, '!?*()/#"@')
+        except:
+            pass
+        tgc = GSETTINGS_CLIENT.get_child("themes")
+        if new_color != color_string:
+            tgc.set_string(c, new_color)
+        if button.get_use_alpha():
+            if self.globals.colors.has_key(c+"_alpha"):
+                alpha = self.globals.colors[c+"_alpha"]
+            else:
+                alpha = None
+            new_alpha = min(int(round(button.get_alpha() / 256.0)), 255)
+            if new_alpha != alpha:
+                tgc.set_int(c+"_alpha", new_alpha)
+
+    def __color_reset(self, button, c):
+        # Reset gconf color setting to default.
+        if not self.theme:
+            return
+        if self.theme_colors.has_key(c):
+            color_string = self.theme_colors[c]
+        else:
+            color_string = self.globals.DEFAULT_COLORS[c]
+        theme_name = self.theme.get_name().replace(" ", "_").encode()
+        try:
+            theme_name = theme_name.translate(None, '!?*()/#"@')
+        except:
+            pass
+        #color_dir = GCONF_DIR + "/themes/" + theme_name
+        #GCONF_CLIENT.set_string(color_dir+"/"+c, color_string)
+        GSETTINGS_THEMES.set_string(c.replace("_", "-"), color_string)
+        if self.theme_alphas.has_key(c):
+            if "no" in self.theme_alphas[c]:
+                return
+            alpha = int(round(int(self.theme_alphas[c]) * 2.55))
+        elif self.globals.DEFAULT_COLORS.has_key(c+"_alpha"):
+            alpha = self.globals.DEFAULT_COLORS[c+"_alpha"]
+        else:
+            return
+        #GCONF_CLIENT.set_int(color_dir+"/"+c+"_alpha", alpha)
+        GSETTINGS_THEMES.set_string(c.replace("_", "-"), alpha)
+
+    def __apply_gkey(self, button, setting):
+        keystr = self.gkeys_entries[setting].get_text()
+        buttons = ("<control>", "<alt>", "<super>")
+        for b in buttons:
+            if b in keystr:
+                break
+        else:
+            message = _("You need to have at least one mod key (<control>, <alt> or <super>) in the keyboard string.")
+            flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+            md = gtk.MessageDialog(self.dialog,
+                                   flags,
+                                   gtk.MESSAGE_INFO,
+                                   gtk.BUTTONS_OK,
+                                   message)
+            md.run()
+            md.destroy()
+            return
+        #GCONF_CLIENT.set_string(GCONF_DIR+"/"+"%s_keystr"%setting, keystr)
+        GSETTINGS_CLIENT.set_string("%s-keystr"%setting.replace("_", "-"), keystr)
+
+    def __reset_gkey(self, button, setting):
+        keystr = self.globals.DEFAULT_SETTINGS["%s_keystr"%setting]
+        #GCONF_CLIENT.set_string(GCONF_DIR+"/"+"%s_keystr"%setting, keystr)
+        GSETTINGS_CLIENT.set_string("%s-keystr"%setting.replace("_", "-"), keystr)
+        self.gkeys_entries[setting].set_text(keystr)
+
+    def __popup_style_changed(self, combobox):
+        if not self.theme:
+            return
+        value = self.popup_style_combo.get_active_text()
+        if value is None:
+            return
+        file_name = self.popup_styles[value]
+        theme_name = self.theme.get_name().replace(" ", "_").encode()
+        try:
+            theme_name = theme_name.translate(None, '!?*()/#"@')
+        except:
+            pass
+        GSETTINGS_THEMES.set_string("popup-style-file", file_name)
+
+    def __reset_popup_style(self, combobox):
+        if not self.theme:
+            return
+        file_name = self.theme.default_popup_style
+        theme_name = self.theme.get_name().replace(" ", "_").encode()
+        try:
+            theme_name = theme_name.translate(None, '!?*()/#"@')
+        except:
+            pass
+        GSETTINGS_THEMES.set_string(theme_name, file_name)
+
+    def __set_theme(self, button=None):
+        value = self.theme_combo.get_active_text()
+        if value is None:
+            return
+        if value != self.globals.settings["theme"]:
+            GSETTINGS_CLIENT.set_string("theme", value)
+        else:
+            # Check if the theme list
+            # has changed anyway.
+            self.__load_theme()
+            self.theme_combo.get_model().clear()
+            theme_names = self.themes.keys()
+            theme_names.sort()
+            for theme in theme_names:
+                    self.theme_combo.append_text(theme)
+            self.__update_color_labels()
+            self.__update()
+
+    def __on_theme_changed(self, arg):
+        self.__load_theme()
+        self.theme_combo.get_model().clear()
+        theme_names = self.themes.keys()
+        theme_names.sort()
+        for theme in theme_names:
+                self.theme_combo.append_text(theme)
+
+        self.popup_style_combo.get_model().clear()
+        self.popup_styles = self.popup_style.get_styles(self.theme.get_name())
+        style_names = self.popup_styles.keys()
+        style_names.sort()
+        for style in style_names:
+            self.popup_style_combo.append_text(style)
+        self.__update_color_labels()
+
+    def __update_color_labels(self):
+        # Color labels
+        if self.theme:
+            color_names = self.theme.get_color_names()
+        else:
+            color_names={}
+            for i in range(1,9):
+                color_names["color%s"%i]="Not used"
+        for i in range(1, 9):
+            c = "color%s"%i
+            if color_names.has_key(c):
+                text = color_names[c].capitalize()
+            else:
+                text = self.default_color_names[c]
+            # Hide not used colors
+            if text == "Not used":
+                self.color_labels[c].hide()
+                self.color_buttons[c].hide()
+                self.clear_buttons[c].hide()
+            else:
+                self.color_labels[c].show()
+                self.color_buttons[c].show()
+                self.clear_buttons[c].show()
+            # Translate
+            text = dockbarx.i18n.theme.gettext(text)
+            self.color_labels[c].set_text(text)
+            self.color_buttons[c].set_title(text)
+
+    def __show_theme_info(self, *args):
+        name = self.theme_combo.get_active_text()
+        info = None
+        for theme, path in self.themes.items():
+            if theme.lower() == name.lower():
+                info = Theme.get_info(path)
+                break
+        if info is None:
+            return
+        dialog = Gtk.Dialog(_("Theme Info"),
+                            buttons=(Gtk.STOCK_OK, Gtk.ResponseType.OK))
+        dialog.set_default_size(600, 400)
+        sw = gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyTypeAUTOMATIC)
+        textview = Gtk.TextView()
+        textview.set_wrap_mode(Gtk.WrapMode.WORD)
+        textbuffer = textview.get_buffer()
+        sw.add(textview)
+        sw.show()
+        textview.show()
+        dialog.vbox.pack_start(sw, True, True, 0)
+
+        textbuffer.set_text(info)
+
+        dialog.run()
+        dialog.destroy()
+            
+    def __set_dock_theme(self, button=None):
+        value = self.dock_theme_combo.get_active_text()
+        if value is None:
+            return
+        file_name = self.dock_themes[value]
+        if file_name != self.globals.settings["dock/theme_file"]:
+            GSETTINGS_DOCK.set_string("theme-file", file_name)
+        # Update the list of themes.
+        self.dock_theme_combo.get_model().clear()
+        self.dock_themes = self.dock_theme.get_themes()
+        theme_names = self.dock_themes.keys()
+        theme_names.sort()
+        for theme in theme_names:
+                self.dock_theme_combo.append_text(theme)
+        self.__update()
+
+    def __dock_color_set(self, button, c):
+        # Read the value from color (and alpha) and write
+        # it as 8-bit/channel hex string for gconf.
+        # (Alpha is written like int (0-255).)
+        color_string = self.globals.dock_colors[c]
+        color = button.get_color()
+        cs = color.to_string()
+        # cs has 16-bit per color, we want 8.
+        new_color = cs[0:3] + cs[5:7] + cs[9:11]
+        theme_file = self.globals.settings["dock/theme_file"]
+        if new_color != color_string:
+            GSETTINGS_DOCK_THEME.set_string(c.replace("_", "-"), new_color)
+        alpha = self.globals.dock_colors[c.replace("color", "alpha")]
+        new_alpha = min(int(round(button.get_alpha() / 256.0)), 255)
+        if new_alpha != alpha:
+            cv = c.replace("_", "-")
+            GSETTINGS_DOCK_THEME.set_int(cv.replace("color", "alpha"), new_alpha)
+
+    def __dock_color_reset(self, button, c):
+        # Reset gconf color setting to default.
+        value = self.dock_theme.default_colors[c.replace("_", "-")]
+        theme_file = self.globals.settings["dock/theme_file"]
+        GSETTINGS_DOCK_THEME.set_string(c.replace("_", "-"), value)
+        a = c.replace("color", "alpha")
+        value = self.dock_theme.default_colors[a]
+        GSETTINGS_DOCK_THEME.set_int(a.repace("_", "-"), value)
+
+    def __open_dockmanager_settings(self, *args):
+        bus = dbus.SessionBus()
+        try:
+            daemon = bus.get_object("net.launchpad.DockManager.Daemon",
+                                    "/net/launchpad/DockManager/Daemon")
+            daemon.ShowPreferences(dbus_interface=\
+                                  "net.launchpad.DockManager.Daemon")
+        except dbus.exceptions.DBusException, e:
+            print "Couldn't open DockManager Preferences"
+            print "reason: %s " % e
+
+    def __set_font(self, button, name):
+        font = button.get_font_name()
+        if font != self.globals.settings[name]:
+            GSETTINGS_CLIENT.set_string(name.replace("_", "-"), font)
+
+    def __show_preview_dialogs(self):
+        # Check if the needed compiz plugin is activated
+        # and ask if it should be if it isn't.
+        try:
+            plugins = compiz_call_sync("core/allscreens/active_plugins",
+                                        "get")
+        except dbus.exceptions.DBusException:
+            # This probably means that compiz isn't running.
+            # Assume that kwin is used instead and do nothing.
+            return
+        if not "kdecompat" in plugins:
+            #Check if the plugin is installed.
+            proxy = BUS.get_object("org.freedesktop.compiz",
+                                   "/org/freedesktop/compiz")
+            if "kdecompat" in str(proxy.Introspect()):
+                message = _("Previews requires the compiz plugin KDE Compability to be activated. Should dockbarx activate it for you?")
+                flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+                md = gtk.MessageDialog(self.dialog,
+                                       flags,
+                                       gtk.MESSAGE_QUESTION,
+                                       gtk.BUTTONS_YES_NO,
+                                       message)
+                response = md.run()
+                md.destroy()
+                if response == gtk.RESPONSE_YES:
+                    plugins.append("kdecompat")
+                    compiz_call_sync("core/allscreens/active_plugins",
+                                     "set", plugins)
+            else:
+                message = _("The compiz plugin KDE Compability that is needed for previews doesn't seem to be installed. If you use ubuntu, you need to install the package compiz-fusion-plugins-main.")
+                flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+                md = gtk.MessageDialog(self.dialog,
+                                       flags,
+                                       gtk.MESSAGE_INFO,
+                                       gtk.BUTTONS_CLOSE,
+                                       message)
+                md.run()
+                md.destroy()
+
+        # Check if Support Plasma thumbnails is activated.
+        try:
+            plasmat = compiz_call_sync(
+                                    "kdecompat/screen0/plasma_thumbnails",
+                                    "get")
+        except dbus.exceptions.DBusException:
+            return
+        if not plasmat:
+            message = _("Previews requires that Support Plasma Thumnails should be activated in KDE Compability plugin. Should dockbarx activate it for you?")
+            flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+            md = gtk.MessageDialog(self.dialog,
+                                   flags,
+                                   gtk.MESSAGE_QUESTION,
+                                   gtk.BUTTONS_YES_NO,
+                                   message)
+            response = md.run()
+            md.destroy()
+            if response == gtk.RESPONSE_YES:
+                plugins.append("kdecompat")
+                compiz_call_sync("kdecompat/screen0/plasma_thumbnails",
+                                 "set", True)
+
+    def __show_preview_minimized_dialogs(self):
+        # This function is not used right now, it can cause compiz to freeze.
+        
+        # Check if the needed compiz plugin is activated
+        # and ask if it should be if it isn't.
+        try:
+            plugins = compiz_call_sync("core/screen0/active_plugins",
+                                       "get")
+        except dbus.exceptions.DBusException:
+            # This probably means that compiz isn't running.
+            raise
+            return
+        if not "workarounds" in plugins:
+            message = _("Previews for minimzied windows requires the compiz plugin Workarounds to be activated. Should dockbarx activate it for you?")
+            flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+            md = gtk.MessageDialog(self.dialog,
+                                   flags,
+                                   gtk.MESSAGE_QUESTION,
+                                   gtk.BUTTONS_YES_NO,
+                                   message)
+            response = md.run()
+            md.destroy()
+            if response == gtk.RESPONSE_YES:
+                plugins.append("workarounds")
+                compiz_call_sync("core/allscreens/active_plugins", "set",
+                                 plugins)
+            else:
+                return
+        # Check if Support Plasma thumbnails is activated.
+        try:
+            mp = compiz_call_sync("workarounds/screen0/keep_minimized_windows",
+                                  "get")
+        except dbus.exceptions.DBusException:
+            return
+        if not mp:
+            message = _("Previews for minimzied windows requires the option \"Keep previews of minimized windows\" to be activated in compiz plugin Workarounds. Should DockbarX activate it for you?")
+            flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+            md = gtk.MessageDialog(self.dialog,
+                                   flags,
+                                   gtk.MESSAGE_QUESTION,
+                                   gtk.BUTTONS_YES_NO,
+                                   message)
+            response = md.run()
+            md.destroy()
+            if response == gtk.RESPONSE_YES:
+                plugins.append("kdecompat")
+                compiz_call_sync("workarounds/screen0/keep_minimized_windows",
+                                 "set", True)
+        
+    def __show_opacify_dialog(self):
+        # Check if the needed compiz plugin is activated
+        # and ask if it should be if it isn't.
+        try:
+            plugins = compiz_call_sync("core/allscreens/active_plugins",
+                                       "get")
+        except dbus.exceptions.DBusException:
+            # This probably means that compiz isn't running.
+            return
+        if not "obs" in plugins:
+            message = _("Opacify requires the compiz plugin Opacity, Brightness and Saturation to be activated. Should dockbarx activate it for you?")
+            flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+            md = gtk.MessageDialog(self.dialog,
+                                   flags,
+                                   gtk.MESSAGE_QUESTION,
+                                   gtk.BUTTONS_YES_NO,
+                                   message)
+            response = md.run()
+            md.destroy()
+            if response == gtk.RESPONSE_YES:
+                plugins.append("obs")
+                compiz_call_sync("core/allscreens/active_plugins", "set",
+                                 plugins)
+
+PrefDialog()
+Gtk.main()

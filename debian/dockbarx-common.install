@@ -1,0 +1,9 @@
+debian/tmp/usr/lib/python*
+debian/tmp/usr/share/icons
+debian/tmp/usr/share/locale
+debian/tmp/usr/share/dockbarx/themes/*.tar.gz
+debian/tmp/usr/share/dockbarx/themes/popup_styles
+debian/tmp/usr/bin/dbx_preference
+debian/tmp/usr/share/applications/dbx_preference.desktop
+debian/tmp/etc/xdg/autostart/zeitgeist-daemon.desktop
+debian/tmp/usr/share/glib-2.0/schemas/org.dockbarx.gschema.xml

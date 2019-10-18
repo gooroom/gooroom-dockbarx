@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -e
+
+glib-compile-schemas /usr/share/glib-2.0/schemas
+
+
+gsettings set org.dockbarx groupbutton-attention-notification-type 'nothing'
+
+gsettings set org.dockbarx windowbutton-shift-and-right-click-action 'no action'
+
+gsettings set org.dockbarx media-buttons false
+
+gsettings set org.dockbarx unity false
+
+gsettings set org.dockbarx groupbutton-attention-notification-type 'nothing'
+
+gsettings set org.dockbarx groupbutton-shift-and-right-click-action 'no action'
+
+gsettings set org.dockbarx groupbutton-shift-and-left-click-action 'no action'
+
+gsettings set org.dockbarx groupbutton-middle-click-action 'no action'
+
+gsettings set org.dockbarx groupbutton-scroll-up 'no action'
+
+gsettings set org.dockbarx groupbutton-scroll-down 'no action'
+
+gsettings set org.dockbarx windowbutton-shift-and-left-click-action 'no action'
+
+gsettings set org.dockbarx windowbutton-scroll-up 'no action'
+
+gsettings set org.dockbarx windowbutton-scroll-down 'no action'
+
+gsettings set org.dockbarx windowbutton-middle-click-action 'no action'
+
+gsettings set org.dockbarx groupbutton-show-tooltip true
+
+# set theme
+gsettings set org.dockbarx theme 'DockXYZ'
+
+gsettings set org.dockbarx quicklist false
+
+
+gsettings set org.dockbarx launchers "['utilus;/usr/share/applications/org.gnome.Nautilus.desktop', 'gooroom-browser;/usr/share/applications/gooroom-browser.desktop']"

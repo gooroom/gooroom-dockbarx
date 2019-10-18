@@ -1,0 +1,63 @@
+# Polish translation for dockbar
+# Copyright (c) 2010 Rosetta Contributors and Canonical Ltd 2010
+# This file is distributed under the same license as the dockbar package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dockbar\n"
+"Report-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2010-06-09 13:23+0300\n"
+"PO-Revision-Date: 2010-11-18 22:34+0000\n"
+"Last-Translator: Solve <solaizen@gmail.com>\n"
+"Language-Team: Polish <pl@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2012-10-20 14:31+0000\n"
+"X-Generator: Launchpad (build 16165)\n"
+
+msgid "Window list background"
+msgstr "Tło listy okien"
+
+msgid "Normal text"
+msgstr "Zwykły tekst"
+
+msgid "Active window text"
+msgstr "Tekst aktywnego okna"
+
+msgid "Active window"
+msgstr ""
+
+msgid "Minimized window text"
+msgstr "Tekst zminimalizowanego okna"
+
+msgid "Active color"
+msgstr "Kolor aktywnej pozycji"
+
+msgid "Not used"
+msgstr "Nieużywane"
+
+msgid "Active"
+msgstr "Aktywne"
+
+msgid "Launching color"
+msgstr "Kolor uruchamianego"
+
+msgid "Attention color"
+msgstr "Kolor ostrzeżenia"
+
+msgid "Minimized color"
+msgstr "Kolor zminimalizowanego"
+
+msgid "Active glow"
+msgstr "Poświata aktywnego"
+
+msgid "Button color"
+msgstr "Kolor przycisku"
+
+msgid "Active + indicator color"
+msgstr "Kolor aktywnego + powiadomienia"
+
+msgid "Active + dots color"
+msgstr "Kolor aktywnego + kropek"
