@@ -19,6 +19,7 @@
 
 import gtk
 import gobject
+import glib
 import time
 import os
 from dockbarx.applets import DockXApplet, DockXAppletDialog
@@ -109,7 +110,7 @@ class ClockApplet(DockXApplet):
         
     def on_clicked(self, widget, event):
         if event.button == 1:
-            os.system("/bin/sh -c '%s' &" % self.command)
+            glib.spawn_async("/bin/sh -c '%s' &" % self.command)
         elif event.button == 3:
             self.menu.popup(None, None, None, event.button, event.time)
 

@@ -23,6 +23,7 @@ import gi
 from gi.repository import Gtk
 from gi.repository import GObject
 from gi.repository import Gio
+from gi.repository import GLib
 
 import os
 import dbus
@@ -310,8 +311,15 @@ class DesktopEntry(xdg.DesktopEntry.DesktopEntry):
             elif files:
                 cmd = "%s %s"%(cmd, " ".join(files))
 
+            if "hwp-qt" in cmd:
+                _path = cmd.replace("hwp-qt", "")
+                #cmd = "cd " + _path + " & /bin/sh -c " + cmd + " &"
+                cmd = "gtk-launch hwp-qt.desktop"
+                GLib.spawn_command_line_async(cmd)
+                return
+
             logger.info("Executing: %s"%cmd)
-            os.system("/bin/sh -c '%s' &"%cmd)
+            GLib.spawn_command_line_async("/bin/sh -c '%s' &"%cmd)
 
     def get_quicklist(self):
         return self.quicklist
@@ -327,7 +335,7 @@ class DesktopEntry(xdg.DesktopEntry.DesktopEntry):
         cmd = cmd.replace('"', "%22")
         cmd = unquote(cmd)
         logger.info("Executing: %s"%cmd)
-        os.system("/bin/sh -c '%s' &"%cmd)
+        GLib.spawn_command_line_async("/bin/sh -c '%s' &"%cmd)
 
     def getIcon(self, *args):
         try:
