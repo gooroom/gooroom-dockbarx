@@ -25,9 +25,11 @@ from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import GObject
 from gi.repository import Gio
+from gi.repository import GLib
 
 import sys
 import os
+import stat
 import dbus
 import cairowidgets
 import weakref
@@ -636,7 +638,21 @@ class DockBar():
             identifier = identifier.lower()
             if identifier == "":
                 identifier = None
-            self.__add_launcher(identifier, path)
+            #self.__add_launcher(identifier, path)
+
+            ### Unpinned it if other's permission is not write. ###
+            try:
+                dai = Gio.DesktopAppInfo.new_from_filename(path)
+                #exe = dai.get_string(GLib.KEY_FILE_DESKTOP_KEY_EXEC)
+                #argv = GLib.shell_parse_argv(exe)
+                #exe = GLib.find_program_in_path(argv.argvp[0])
+                exe = GLib.find_program_in_path(dai.get_executable())
+                perm = os.stat(exe)
+                if perm.st_mode & stat.S_IXOTH:
+                    self.__add_launcher(identifier, path)
+            except TypeError, OSError:
+                pass
+
         # Update pinned_apps list to remove any pinned_app that are faulty.
         self.update_pinned_apps_list()
 
