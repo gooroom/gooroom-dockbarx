@@ -5,7 +5,9 @@ Maintainer: gooroom <gooroom@gooroom.kr>
 Build-Depends: cdbs (>= 0.4.49), debhelper (>= 7), dh-python, python
 X-Python-Version: >= 2.6
 Standards-Version: 3.9.7
-Homepage: https://github.com/gooroom/gooroom-dockbarx
+Homepage: http://www.gooroom.kr
+Vcs-Git: https://github.com/gooroom/gooroom-dockbarx.git
+Vcs-Browser: https://github.com/gooroom/gooroom-dockbarx
 
 Package: gooroom-dockbarx
 Architecture: all
@@ -16,7 +18,20 @@ Description: Gooroom DockBarX, an icon-based taskbar
 
 Package: gooroom-dockbarx-common
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, python-numpy, python-xlib, python-pil, zeitgeist, python-zeitgeist, at-spi2-core, gir1.2-gtk-3.0, gir1.2-wnck-3.0, gir1.2-keybinder-3.0, gir1.2-gdkpixbuf-2.0, gir1.2-pango-1.0, gir1.2-glib-2.0, python-gi-cairo
+Depends: ${misc:Depends}, ${python:Depends},
+	python-numpy,
+	python-xlib,
+	python-pil,
+	zeitgeist,
+	python-zeitgeist,
+	at-spi2-core,
+	gir1.2-gtk-3.0,
+	gir1.2-wnck-3.0,
+	gir1.2-keybinder-3.0,
+	gir1.2-gdkpixbuf-2.0,
+	gir1.2-pango-1.0,
+	gir1.2-glib-2.0,
+	python-gi-cairo
 Recommends: zeitgeist (>= 0.4)
 Conflicts: dockbarx (<< 0.90.2), dockbarx-themes-extra (<< 2.0)
 Replaces: dockbarx (<< 0.90.2), dockbarx-themes-extra (<< 2.0)

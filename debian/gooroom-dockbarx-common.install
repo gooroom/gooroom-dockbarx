@@ -1,0 +1,9 @@
+usr/lib/python*
+usr/share/icons
+usr/share/locale
+usr/share/dockbarx/themes/*.tar.gz
+usr/share/dockbarx/themes/popup_styles
+usr/bin/dbx_preference
+usr/share/applications/dbx_preference.desktop
+etc/xdg/autostart/zeitgeist-daemon.desktop
+usr/share/glib-2.0/schemas/org.dockbarx.gschema.xml
