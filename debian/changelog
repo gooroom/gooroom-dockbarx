@@ -1,3 +1,16 @@
+gooroom-dockbarx (0.92+grm2u1) unstable; urgency=medium
+
+  [ HaeRyong Jeong ]
+  * [a4a213c5] Replaced the system api to spawn_async
+  * [f75dde0e] Unpinned it if other permission is not write.
+
+  [ jongkyung.woo ]
+  * [b240191a] Modified for gooroom-2.0 Version
+
+  [ Gooroom Autobuilder ]
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Sun, 01 Dec 2019 17:23:44 +0900
+
 gooroom-dockbarx (0.92+grm2) unstable; urgency=medium
 
   * Initial Release
