@@ -4,7 +4,7 @@
 #   groupbutton.py
 #
 #   Copyright 2008, 2009, 2010 Aleksey Shaferov and Matias Sars
-#   Copyright (C) 2015-2019 Gooroom <gooroom@gooroom.kr>
+#   Copyright (C) 2019 Gooroom <gooroom@gooroom.kr>
 #
 #   DockbarX is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
