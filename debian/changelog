@@ -1,3 +1,12 @@
+gooroom-dockbarx (0.92+grm2u2) unstable; urgency=medium
+
+  [ HaeRyong Jeong ]
+  * [bffed277] Update sources regarding copyright
+
+  [ Gooroom Autobuilder ]
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Sun, 01 Dec 2019 18:36:56 +0900
+
 gooroom-dockbarx (0.92+grm2u1) unstable; urgency=medium
 
   [ HaeRyong Jeong ]
