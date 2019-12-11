@@ -629,7 +629,7 @@ class DockBar():
         self.d_e_ids_by_wine_program = {}
         self.d_e_ids_by_chromium_cmd = {}
 
-        gconf_pinned_apps = self.globals.get_pinned_apps_from_gconf()
+        gconf_pinned_apps = self.globals.get_launcher_apps_from_dconf()
 
         # Initiate launcher group buttons
         for launcher in gconf_pinned_apps:
@@ -640,21 +640,25 @@ class DockBar():
                 identifier = None
             #self.__add_launcher(identifier, path)
 
-            ### Unpinned it if other's permission is not write. ###
+            ## Unpinned it if other's permission is not write. ###
             try:
+                isPinned = False
                 dai = Gio.DesktopAppInfo.new_from_filename(path)
-                #exe = dai.get_string(GLib.KEY_FILE_DESKTOP_KEY_EXEC)
-                #argv = GLib.shell_parse_argv(exe)
-                #exe = GLib.find_program_in_path(argv.argvp[0])
                 exe = GLib.find_program_in_path(dai.get_executable())
+                #exe = dai.get_string(GLib.KEY_FILE_DESKTOP_KEY_EXEC)
+                #argv = GLib.shell_parse_argv(identifier)
+                #exe = GLib.find_program_in_path(argv.argvp[0])
                 perm = os.stat(exe)
                 if perm.st_mode & stat.S_IXOTH:
-                    self.__add_launcher(identifier, path)
+                    isPinned = True
+                    self.__add_launcher(identifier, path, isPinned)
             except TypeError, OSError:
+                if identifier:
+                    self.__add_launcher(identifier, path, False)
                 pass
 
         # Update pinned_apps list to remove any pinned_app that are faulty.
-        self.update_pinned_apps_list()
+        self.update_launcher_apps_list()
 
         #--- Initiate windows
         # Initiate group buttons with windows
@@ -903,7 +907,7 @@ class DockBar():
     #### Groupbuttons
     def remove_groupbutton(self, group):
         self.groups.remove(group)
-        self.update_pinned_apps_list()
+        self.update_launcher_apps_list()
         if self.next_group and \
            self.next_group in self.groups:
             self.next_group.scrollpeak_abort()
@@ -924,7 +928,7 @@ class DockBar():
             if drop_position == "start":
                 index -= 1
         self.groups.move(group, index)
-        self.update_pinned_apps_list()
+        self.update_launcher_apps_list()
 
     def group_unpinned(self, identifier):
         group = self.groups[identifier]
@@ -939,12 +943,12 @@ class DockBar():
             desktop_entry = self.__get_desktop_entry_for_id(app.get_id())
             group.set_desktop_entry(desktop_entry)
         group.update_name()
-        self.update_pinned_apps_list()
+        self.update_launcher_apps_list()
 
     def __make_groupbutton(self, identifier=None, desktop_entry=None,
-                         pinned=False, index=None, window=None):
+                         pinned=False, launcher=False, index=None, window=None):
         #if desktop_entry.getFileName() == "/usr/share/applications/slack.desktop":
-        group = Group(self, identifier, desktop_entry, pinned)
+        group = Group(self, identifier, desktop_entry, pinned, launcher)
         if window is not None:
             # Windows are added here instead of later so that
             # overflow manager knows if the button should be
@@ -956,7 +960,7 @@ class DockBar():
             self.groups.insert(index, group)
         self.__media_player_check(identifier, group)
         self.unity_watcher.apply_for_group(group)
-        self.update_pinned_apps_list()
+        self.update_launcher_apps_list()
         return group
 
     def __add_window(self, window):
@@ -1181,7 +1185,7 @@ class DockBar():
         group.set_identifier(identifier)
         for window in group:
             self.windows[window.wnck] = indentifier
-        self.update_pinned_apps_list()
+        self.update_launcher_apps_list()
         self.__media_player_check(identifier, group)
 
     def minimize_other_groups(self, group):
@@ -1379,11 +1383,11 @@ class DockBar():
         GLib.timeout_add(100, self.__wait_for_launcher_editor,
                             process, path, new_path, identifier)
 
-    def update_pinned_apps_list(self, arg=None):
+    def update_launcher_apps_list(self, arg=None):
         # Saves pinned_apps_list to gconf.
         gconf_pinned_apps = []
         for group in self.groups:
-            if not group.pinned:
+            if not group.launcher:
                 continue
             identifier = group.identifier
             if identifier is None:
@@ -1392,9 +1396,9 @@ class DockBar():
             # Todo: Is there any drawbacks from using encode("utf-8") here?
             gconf_pinned_apps.append(identifier.encode("utf-8") + ";" +
                                      path.encode("utf-8"))
-        self.globals.set_pinned_apps_list(gconf_pinned_apps)
+        self.globals.set_launcher_apps_list(gconf_pinned_apps)
 
-    def __add_launcher(self, identifier, path):
+    def __add_launcher(self, identifier, path, isPinned):
         if path[:4] == "gio:":
             # This launcher is from an older version of dockbarx.
             # It will be updated to new form automatically.
@@ -1425,7 +1429,7 @@ class DockBar():
         try:
             self.__make_groupbutton(identifier=identifier, \
                                   desktop_entry=desktop_entry, \
-                                  pinned=True)
+                                  pinned=isPinned, launcher=True)
         except GroupIdentifierError:
             logger.exception("Couldn't add a pinned application.")
             return
@@ -1564,7 +1568,7 @@ class DockBar():
                     group = self.groups[old_path]
                 group.pinned = True
                 group.set_desktop_entry(desktop_entry)
-                self.update_pinned_apps_list()
+                self.update_launcher_apps_list()
             return False
         return True
 

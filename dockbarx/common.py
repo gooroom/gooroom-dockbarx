@@ -1056,20 +1056,20 @@ class Globals(GObject.GObject):
         self.emit("preference-update")
 
     def get_apps_from_gst(self):
-        #dconf_pinned_apps = Gio.Settings.default_value(GCONF_DIR + "/launcher") #gsettings = Gio.Settings.new_with_path('org.dockbar.dock', '/mypath/')
-        return dconf_pinned_apps
+        #dconf_launcher_apps = Gio.Settings.default_value(GCONF_DIR + "/launcher") #gsettings = Gio.Settings.new_with_path('org.dockbar.dock', '/mypath/')
+        return dconf_launcher_apps
 
-    def get_pinned_apps_from_gconf(self):
+    def get_launcher_apps_from_dconf(self):
         # Get list of pinned_apps
-        dconf_pinned_apps = []
+        dconf_launcher_apps = []
         try:
-            dconf_pinned_apps = GSETTINGS_CLIENT.get_strv('launchers')
+            dconf_launcher_apps = GSETTINGS_CLIENT.get_strv('launchers')
 
         except:
-            GSETTINGS_CLIENT.set_strv('launchers', dconf_pinned_apps)
-        return dconf_pinned_apps
+            GSETTINGS_CLIENT.set_strv('launchers', dconf_launcher_apps)
+        return dconf_launcher_apps
 
-    def set_pinned_apps_list(self, pinned_apps):
+    def set_launcher_apps_list(self, pinned_apps):
         GSETTINGS_CLIENT.set_strv("launchers", pinned_apps)
         #params = '['
         #for app in pinned_apps:

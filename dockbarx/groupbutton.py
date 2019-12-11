@@ -128,7 +128,7 @@ class Group(ListOfWindows):
     the popup window, the window list and other stuff."""
 
     def __init__(self, dockbar, identifier=None, desktop_entry=None,
-                 pinned=False):
+                 pinned=False, launcher=False):
         ListOfWindows.__init__(self)
         self.dockbar_r = weakref.ref(dockbar)
         self.globals = Globals()
@@ -137,6 +137,7 @@ class Group(ListOfWindows):
                 self.__on_show_only_current_desktop_changed)
         self.opacify_obj = Opacify()
         self.pinned = pinned
+        self.launcher = launcher
         self.desktop_entry = desktop_entry
         self.identifier = identifier
         if not identifier and desktop_entry is None:
@@ -866,7 +867,8 @@ class Group(ListOfWindows):
 
     def __menu_pin(self, widget=None, event=None):
         self.pinned = True
-        self.dockbar_r().update_pinned_apps_list()
+        self.launcher = True
+        self.dockbar_r().update_launcher_apps_list()
         self.popup.hide()
 
     #### Actions
@@ -1259,6 +1261,7 @@ class Group(ListOfWindows):
         else:
             name = self.desktop_entry.getFileName()
         self.pinned = False
+        self.launcher = False
         if not len(self):
             self.dockbar_r().remove_groupbutton(self)
         else:
