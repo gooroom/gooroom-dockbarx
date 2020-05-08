@@ -91,23 +91,25 @@ class CairoAppButton(Gtk.EventBox):
             child.queue_draw()
 
     def do_draw(self, event):
-        if self.surface is not None:
-            ctx = self.area.get_window().cairo_create()
-            rect = self.get_allocation()
-            ctx.rectangle(rect.x, rect.y,
-                          rect.width, rect.height)
-            ctx.clip()
-            a = self.get_allocation()
-            ctx.set_source_surface(self.surface, a.x, a.y)
-            ctx.paint()
-            for surface in (self.badge, self.progress_bar):
-                if surface is not None:
-                    ctx.rectangle(rect.x, rect.y,
-                                  rect.width, rect.height)
-                    ctx.clip()
-                    ctx.set_source_surface(surface, a.x, a.y)
-                    ctx.paint()
-            self.propagate_draw(self.area, event)
+        if self.surface is None:
+            return
+
+        ctx = self.area.get_window().cairo_create()
+        rect = self.get_allocation()
+        ctx.rectangle(rect.x, rect.y,
+                      rect.width, rect.height)
+        ctx.clip()
+        a = self.get_allocation()
+        ctx.set_source_surface(self.surface, a.x, a.y)
+        ctx.paint()
+        for surface in (self.badge, self.progress_bar):
+            if surface is not None:
+                ctx.rectangle(rect.x, rect.y,
+                              rect.width, rect.height)
+                ctx.clip()
+                ctx.set_source_surface(surface, a.x, a.y)
+                ctx.paint()
+        self.propagate_draw(self.area, event)
 
     def do_size_allocate(self, allocation):
         Gtk.EventBox.do_size_allocate(self, allocation)
@@ -605,22 +607,22 @@ class CairoPopup(Gtk.Window):
     def do_draw(self, event):
         self.set_shape_mask()
         w,h = self.get_size()
-        self.ctx = self.get_window().cairo_create()
+        ctx = self.get_window().cairo_create()
         # set a clip region for the expose event, XShape stuff
-        self.ctx.save()
+        ctx.save()
         if self.is_composited():
-            self.ctx.set_source_rgba(1, 1, 1,0)
+            ctx.set_source_rgba(1, 1, 1,0)
         else:
-            self.ctx.set_source_rgb(0.8, 0.8, 0.8)
-        self.ctx.set_operator(cairo.OPERATOR_SOURCE)
-        self.ctx.paint()
-        self.ctx.restore()
+            ctx.set_source_rgb(0.8, 0.8, 0.8)
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        ctx.paint()
+        ctx.restore()
         area = self.get_allocation()
-        self.ctx.rectangle(area.x, area.y,
+        ctx.rectangle(area.x, area.y,
                            area.width, area.height)
-        self.ctx.clip()
-        self.draw_frame(self.ctx, w, h)
-        Gtk.Window.do_draw(self, self.ctx)
+        ctx.clip()
+        self.draw_frame(ctx, w, h)
+        Gtk.Window.do_draw(self, ctx)
 
     def set_shape_mask(self):
         # Set window shape from alpha mask of background image
@@ -1232,7 +1234,7 @@ class CairoVBox(Gtk.VBox):
 
     def do_draw(self, event):
         a = self.get_allocation()
-        ctx = self.window.cairo_create()
+        ctx = self.get_window().cairo_create()
         ctx.rectangle(event.area.x, event.area.y,
                       event.area.width, event.area.height)
         ctx.clip()
@@ -1262,10 +1264,10 @@ class CairoPreview(Gtk.Image):
         #self.connect('draw', self.on_draw)
 
     def draw(self):
-        if self.window is None:
+        if self.get_window() is None:
             return True
         a = self.get_allocation()
-        ctx = self.window.cairo_create()
+        ctx = self.get_window().cairo_create()
         ctx.rectangle(a.x, a.y,
                       a.width, a.height)
         ctx.clip()
@@ -1275,7 +1277,7 @@ class CairoPreview(Gtk.Image):
 
     def do_draw(self, event):
         a = self.get_allocation()
-        ctx = self.window.cairo_create()
+        ctx = self.get_window().cairo_create()
         ctx.rectangle(event.area.x, event.area.y,
                       event.area.width, event.area.height)
         ctx.clip()

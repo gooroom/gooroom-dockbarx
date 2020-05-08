@@ -31,6 +31,11 @@ import weakref
 import gc
 gc.enable()
 
+### use set_preview
+from Xlib import X
+from Xlib.display import Display
+from PIL import Image
+
 from common import ODict, Globals, Opacify
 from common import connect, disconnect, opacify, deopacify
 from cairowidgets import *
@@ -38,7 +43,6 @@ from log import logger
 
 import i18n
 _ = i18n.language.gettext
-
 
 try:
     WNCK_WINDOW_ACTION_MINIMIZE = Wnck.WindowActions.MINIMIZE
@@ -50,7 +54,6 @@ except:
     WNCK_WINDOW_ACTION_UNMINIMIZE = 1 << 13
     WNCK_WINDOW_ACTION_MAXIMIZE = 1 << 14
     WNCK_WINDOW_STATE_MINIMIZED = 1 << 0
-
 
 class Window():
     def __init__(self, wnck_window, group):
@@ -347,6 +350,14 @@ class WindowItem(CairoButton):
         self.drag_dest_set(0, [], 0)
         self.drag_entered = False
 
+        # for preview...
+        self.preview_w = 300
+        self.preview_h = 200
+        self.d = None
+        self.drawable = None
+        self.pixmap = None
+        self.window = None
+
         #self.connect("clicked", self.on_clicked)
         self.close_button.connect("button-press-event", self.disable_click)
         self.close_button.connect("clicked", self.__on_close_button_clicked)
@@ -469,7 +480,49 @@ class WindowItem(CairoButton):
         else:
             self.show()
 
+    def __get_window_pixbuf(self, pixmap, to_w, to_h):
+        geo = pixmap.get_geometry()
+        di = pixmap.get_image(0, 0, geo.width, geo.height, X.ZPixmap, 0xffffffff)
+
+        img = Image.frombytes('RGBA', (geo.width, geo.height), di.data, 'raw', 'BGRA')
+        img_pixbuf = GdkPixbuf.Pixbuf.new_from_data(img.tobytes(), GdkPixbuf.Colorspace.RGB, True, 8, \
+                                                    geo.width, geo.height,\
+                                                    len(img.getbands()) * geo.width,\
+                                                    None, None)
+
+        pixbuf = img_pixbuf.scale_simple(to_w, to_h, GdkPixbuf.InterpType.BILINEAR)
+
+        del di
+        del img
+        del img_pixbuf
+        return pixbuf
+
     ####Preview
+    def set_preview(self, is_visible):
+        #from Xlib.display import Display
+        window = self.window_r()
+        if self.globals.settings["preview"] is False or \
+           window.wnck.is_minimized():
+            return
+
+        if is_visible is False:
+            #self.preview.set_from_pixbuf(None)
+            self.preview.clear()
+            return
+
+        d = Display()
+        pixmap = d.create_resource_object('pixmap', window.xid)
+
+        pixbuf = self.__get_window_pixbuf(pixmap, self.preview_w, self.preview_h)
+        if pixbuf is not None:
+            self.preview.set_from_pixbuf(pixbuf)
+
+        del pixbuf
+        pixmap.free()
+        del pixmap
+        d.close()
+        del d
+
     def update_preview(self, *args):
         window = self.window_r()
         group = self.group_r()
@@ -486,6 +539,9 @@ class WindowItem(CairoButton):
             width = int(round(float(size) * width / height))
             height = size
         self.preview.set_size_request(width, height)
+        self.preview_w = width
+        self.preview_h = height
+
         return width, height
 
     def set_show_preview(self, show_preview):

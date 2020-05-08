@@ -430,8 +430,7 @@ class GroupList(list):
         self.container.destroy()
         self.empty.destroy()
         self.box.destroy()
-        
-        
+
 class DockBar():
     def __init__(self, parent):
         logger.info("DockbarX %s"%VERSION)
@@ -751,7 +750,6 @@ class DockBar():
 
     def set_max_size(self, max_size):
         """Set the max size DockbarX is allowed to occupy."""
-        print "= = = = => max_size in dockbar: %s" % str(max_size)
         self.groups.set_max_size(max_size)
 
     def set_parent_window_reporting(self, report):
@@ -961,6 +959,7 @@ class DockBar():
         self.__media_player_check(identifier, group)
         self.unity_watcher.apply_for_group(group)
         self.update_launcher_apps_list()
+
         return group
 
     def __add_window(self, window):

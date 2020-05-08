@@ -229,6 +229,10 @@ class Group(ListOfWindows):
         if self.window_list:
             self.window_list.destroy()
 
+    def set_previews(self, is_visible=True):
+        for w in self:
+            w.item.set_preview(is_visible)
+
     def get_monitor(self):
         window = self.dockbar_r().groups.box.get_window()
         gdk_screen = Gdk.Screen.get_default()
@@ -327,6 +331,7 @@ class Group(ListOfWindows):
             d = display.Display()
             wnd = d.create_resource_object('window', self.get_window().get_xid())
             ia = d.intern_atom('_KDE_WINDOW_PREVIEW', True)
+            d.close()
             wnd.change_property(ia, 
                                             ia, 
                                             32, 
@@ -1528,11 +1533,9 @@ class GroupButton(CairoAppButton):
             if self.get_allocation().width !=  width or \
                self.get_allocation().height != height:
                 self.set_size_request(width, height)
-                # 강제 redraw시켜야함 by jeong
+                # 강제 redraw 시켜야함
                 GLib.timeout_add(30, self.queue_resize_no_redraw)
-
             self.update(surface)
-        return
 
     def update_state_if_shown(self, *args):
         #Update state if the button is shown.
@@ -2118,27 +2121,6 @@ class GroupPopup(CairoPopup):
         else:
             child_func(self)
 
-
-    def set_previews(self, previews=None):
-        # Tell the compiz/kwin where to put the previews.
-        if previews is None:
-            previews = [0,5,0,0,0,0,0]
-        if self.get_window():
-            from Xlib import display, X
-            d = display.Display()
-            wnd = d.create_resource_object('window', self.get_window().get_xid())
-            ia = d.intern_atom('_KDE_WINDOW_PREVIEW', True)
-            wnd.change_property(ia, 
-                                            ia, 
-                                            32, 
-                                            previews, 
-                                            X.PropModeReplace)
-#            self.get_window().property_change(ATOM_PREVIEWS,
-#                                        ATOM_PREVIEWS,
-#                                        32,
-#                                        gtk.gdk.PROP_MODE_REPLACE,
-#                                        previews)
-
     def do_leave_notify_event(self, event):
         CairoPopup.do_leave_notify_event(self, event)
         self.hide_if_not_hovered()
@@ -2164,6 +2146,8 @@ class GroupPopup(CairoPopup):
         except:
             logger.exception("If an empty popup was shown this " + \
                              "might have somethin to do with it:")
+
+        group.set_previews()
         CairoPopup.show_all(self)
         self.popup_showing = True
 
@@ -2183,7 +2167,8 @@ class GroupPopup(CairoPopup):
             return
         group = self.group_r()
         if self.get_window():
-            self.set_previews(None)
+            #self.set_previews(None)
+            group.set_previews(False)
         CairoPopup.hide(self)
         self.popup_showing = False
         if self.show_sid is not None:
@@ -2417,15 +2402,9 @@ class WindowList(Gtk.VBox):
         self.set_spacing(2)
         self.alignment = Gtk.Alignment()
         self.alignment.set(0.5, 0.5, 1, 1)
-        self.title = Gtk.Label()
-        self.title.set_use_markup(True)
-        self.update_title()
-        self.update_title_tooltip()
-        self.pack_start(self.title, False, True, 0)
         self.pack_start(self.alignment, True, True, 0)
         self.set_show_previews(self.globals.settings["preview"])
 
-        connect(self.globals, "color2-changed", self.update_title)
         connect(self.globals, "show-previews-changed",
                 self.__on_show_previews_changed)
 
@@ -2443,21 +2422,6 @@ class WindowList(Gtk.VBox):
             else:
                 window.item.show()
         Gtk.VBox.show_all(self)
-
-    def update_title(self, *args):
-        group = self.group_r()
-        if group.name is None:
-            return
-        self.title.set_label(
-              "<span foreground='%s'>"%self.globals.colors["color2"] + \
-              "<big><b>%s</b></big></span>"%escape(group.name))
-        self.title.set_use_markup(True)
-
-    def update_title_tooltip(self):
-        group = self.group_r()
-        if group.identifier:
-            self.title.set_tooltip_text(
-                        "%s: %s"%(_("Identifier"), group.identifier))
 
     def can_be_shown(self):
         group = self.group_r()
@@ -2522,7 +2486,7 @@ class WindowList(Gtk.VBox):
                 if width > mgeo.width:
                     show_previews = False
             else:
-                height = 12 + self.title.size_request().height
+                height = 12
                 for window in group.get_windows():
                     height += window.item.update_preview()[1]
                     height += 24 + window.item.label.size_request().height
@@ -2568,13 +2532,13 @@ class WindowList(Gtk.VBox):
 
     def __create_scrolled_window(self):
         group = self.group_r()
-        scrolled_window = gtk.ScrolledWindow()
-        scrolled_window.set_shadow_type(gtk.SHADOW_NONE)
-        scrolled_window.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_shadow_type(Gtk.ShadowType.NONE)
+        scrolled_window.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.adjustment = scrolled_window.get_vadjustment()
         self.scroll_changed_sid = self.adjustment.connect("changed",
                                             self.__on_scroll_changed)
-        mgeo = gtk.gdk.screen_get_default().get_monitor_geometry(
+        mgeo = Gdk.Screen.get_default().get_monitor_geometry(
                                                     group.get_monitor())
         # Todo: Size is hardcoded to monitor height - 100.
         #       Does this need to be more gracefully calculated?
@@ -2582,17 +2546,17 @@ class WindowList(Gtk.VBox):
         return scrolled_window
 
     def __on_scroll_changed(self, adjustment):
-        if adjustment.upper == 1:
+        if adjustment.get_upper() == 1:
             # Not yet realised.
             return
-        if adjustment.upper <= adjustment.page_size:
+        if adjustment.get_upper() <= adjustment.get_page_size():
             # The scrolled window is no longer needed.
             self.size_overflow = False
             self.__rebuild_list()
 
 
     def on_popup_reallocate(self, popup):
-        popup.set_previews(self.get_previews_list())
+        #popup.set_previews(self.get_previews_list())
         if not self.window_box:
             return
         for windowitem in self.window_box.get_children():
@@ -2610,8 +2574,6 @@ class WindowList(Gtk.VBox):
     def apply_mini_mode(self):
         group = self.group_r()
         self.set_spacing(0)
-        self.title.set_no_show_all(True)
-        self.title.hide()
         self.show_previews = False
         for window in group:
             window.item.set_show_preview(False)
@@ -2620,8 +2582,6 @@ class WindowList(Gtk.VBox):
 
     def apply_normal_mode(self):
         self.set_spacing(2)
-        self.title.set_no_show_all(False)
-        self.title.show()
         self.mini_mode = False
         self.set_show_previews(self.globals.settings["preview"])
         self.__rebuild_list()
@@ -2650,7 +2610,7 @@ class GroupMenu(GObject.GObject):
             self.menu = Gtk.VBox()
             self.menu.set_spacing(2)
             self.menu.can_be_shown = lambda: True
-            self.menu.on_popup_reallocate = lambda p: p.set_previews(None)
+            #self.menu.on_popup_reallocate = lambda p: p.set_previews(None)
         self.menu.show()
 
     def build_group_menu(self, desktop_entry, dockmanager, quicklist, \
