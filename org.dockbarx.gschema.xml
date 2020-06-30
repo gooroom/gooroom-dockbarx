@@ -38,7 +38,7 @@
             <default>false</default>
         </key>
         <key name="preview" type="b">
-            <default>true</default>
+            <default>false</default>
         </key>
         <key name="preview-size" type="i">
             <default>150</default>
