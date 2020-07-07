@@ -1,3 +1,13 @@
+gooroom-dockbarx (0.92+grm2u4) unstable; urgency=medium
+
+  [ HaeRyong Jeong ]
+  * [3120eab0] Added preview feature
+  * [9fd4728c] Removed dockx_applets and Updated copyright and disable preview thumbnail
+
+  [ Gooroom Autobuilder ]
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Tue, 07 Jul 2020 12:51:30 +0900
+
 gooroom-dockbarx (0.92+grm2u3) unstable; urgency=medium
 
   [ JeongHaeRyong ]
