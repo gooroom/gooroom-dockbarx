@@ -89,11 +89,6 @@ class install_data(_install_data):
         # Scan folders for the right files
         self.scan_path("/usr/share/dockbarx/themes", "themes", ext=".tar.gz")
         self.scan_path("share/icons/", "icons", ext=".png")
-        self.scan_path("/usr/share/namebar/themes",
-                       "dockx_applets/namebar_themes",
-                       ext=".tar.gz")
-        self.scan_path("/usr/share/dockbarx/applets/vc-themes",
-                       "dockx_applets/vc-themes")
         _install_data.run(self)
 
     def scan_path(self, install_path, base_path, path="", ext=""):
