@@ -1,3 +1,12 @@
+gooroom-dockbarx (0.92+grm2u5) unstable; urgency=medium
+
+  [ Haeryong Jeong ]
+  * [1ea0597d] Removed dockx_applets
+
+  [ Gooroom Autobuilder ]
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Tue, 07 Jul 2020 16:42:59 +0900
+
 gooroom-dockbarx (0.92+grm2u4) unstable; urgency=medium
 
   [ HaeRyong Jeong ]
