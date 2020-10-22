@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #-*- coding: utf-8 -*-
 
 #   dockbar.py
@@ -31,16 +31,16 @@ import sys
 import os
 import stat
 import dbus
-import cairowidgets
+from . import cairowidgets
 import weakref
 from time import time
 from xdg.DesktopEntry import ParsingError
 
 
-from common import *
-from log import logger
+from .common import *
+from .log import logger
 
-import i18n
+from . import i18n
 _ = i18n.language.gettext
 
 VERSION = "0.92"
@@ -175,15 +175,15 @@ class GroupList(list):
     def __getitem__(self, item):
         # Item can be a identifier, path or index
         if item is None:
-            raise KeyError, item
-        if isinstance(item, (str, unicode)):
+            raise KeyError(item)
+        if isinstance(item, str):
             for group in self:
                 if group.identifier == item or \
                    (group.desktop_entry is not None and
                     group.desktop_entry.getFileName() == item):
                     return group
-            raise KeyError, item
-        return list.__getitem__(self, item)
+            raise KeyError(item)
+        return list.__getitem__(self, item.decode())
 
     def get(self, item, default=None):
         try:
@@ -328,7 +328,7 @@ class GroupList(list):
         if max_size < self.button_size:
             return
 
-        max_buttons = max_size / self.button_size
+        max_buttons = int(max_size / self.button_size)
         if len(groups) <= self.overflow_set * max_buttons:
             # The current overflow_set is too high and would
             # show a empty screen, let's decrease it to something
@@ -485,20 +485,20 @@ class DockBar():
         from gi.repository import Wnck
         global Group
         global GroupIdentifierError
-        from groupbutton import Group, GroupIdentifierError
+        from .groupbutton import Group, GroupIdentifierError
         global Theme
         global NoThemesError
         global PopupStyle
-        from theme import Theme, NoThemesError, PopupStyle
+        from .theme import Theme, NoThemesError, PopupStyle
         global Mpris2Watch
         global MediaButtons
-        from mediabuttons import Mpris2Watch, MediaButtons
+        from .mediabuttons import Mpris2Watch, MediaButtons
         global DockManager
-        from dockmanager import DockManager
+        from .dockmanager import DockManager
         global DockbarDBus
-        from dbx_dbus import DockbarDBus
+        from .dbx_dbus import DockbarDBus
         global UnityWatcher
-        from unity import UnityWatcher
+        from .unity import UnityWatcher
 
         # Media Controls
         self.media_controls = {}
@@ -541,15 +541,19 @@ class DockBar():
         for app in Gio.app_info_get_all():
             id = app.get_id()
             id = id[:id.rfind(".")].lower()
-            name = u""+app.get_name().lower().decode('utf-8')
+            #jeong89
+            name = ""+app.get_name().lower()
+            #name = u""+app.get_name().lower().decode('utf-8')
             exe = app.get_executable()
             if exe:
                 self.apps_by_id[id] = app
                 try:
-                    cmd = u""+app.get_commandline().lower().decode('utf-8')
+                    cmd = ""+app.get_commandline().lower().decode('utf-8')
+                    #cmd = u""+app.get_commandline().lower().decode('utf-8')
                 except AttributeError:
                     # Older versions of gio doesn't have get_comandline.
-                    cmd = u""
+                    cmd = ""
+                    #cmd = u""
                 if id[:5] == "wine-":
                     if cmd.find(".exe") > 0:
                         program = cmd[:cmd.rfind(".exe")+4]
@@ -603,7 +607,7 @@ class DockBar():
                 self.theme = Theme()
             else:
                 self.theme.on_theme_changed()
-        except NoThemesError, details:
+        except NoThemesError as details:
             logger.exception("Error: Couldn't find any themes")
             sys.exit(1)
 
@@ -651,7 +655,7 @@ class DockBar():
                 if perm.st_mode & stat.S_IXOTH:
                     isPinned = True
                     self.__add_launcher(identifier, path, isPinned)
-            except TypeError, OSError:
+            except (TypeError, OSError):
                 if identifier:
                     self.__add_launcher(identifier, path, False)
                 pass
@@ -1043,7 +1047,9 @@ class DockBar():
 
     def __find_desktop_entry_id(self, identifier):
         id = None
-        rc = u""+identifier.lower().decode('utf-8')
+        #jeong89
+        rc = ""+identifier
+        #rc = u""+identifier.lower().decode('utf-8')
         if rc != "":
             if rc in self.desktop_entry_by_id:
                 id = rc
@@ -1078,7 +1084,7 @@ class DockBar():
     def __find_gio_app(self, identifier):
         app = None
         app_id = None
-        rc = u""+identifier.lower().decode('utf-8')
+        rc = ""+identifier
         if rc != "":
             if rc in self.apps_by_id:
                 app_id = rc
@@ -1102,11 +1108,11 @@ class DockBar():
                     rc = rc.partition(" ")[0] 
                     # Workaround for apps
                     # with identifier like this "App 1.2.3" (name with ver)
-                    if rc in self.apps_by_id.keys():
+                    if rc in list(self.apps_by_id.keys()):
                         app_id = rc
-                    elif rc in self.app_ids_by_name.keys():
+                    elif rc in list(self.app_ids_by_name.keys()):
                         app_id = self.app_ids_by_name[rc]
-                    elif rc in self.app_ids_by_exec.keys():
+                    elif rc in list(self.app_ids_by_exec.keys()):
                         app_id = self.app_ids_by_exec[rc]
             if app_id:
                 app = self.apps_by_id[app_id]
@@ -1201,14 +1207,16 @@ class DockBar():
         # the group button that the launcher was dropped on.
         try:
             desktop_entry = DesktopEntry(path)
-        except Exception, detail:
+        except (Exception, detail):
             logger.exception("ERROR: Couldn't read dropped file. " + \
                              "Was it a desktop entry?")
             return False
 
         # Try to match the launcher against the groups that aren't pinned.
         id = path[path.rfind("/")+1:path.rfind(".")].lower()
-        name = u"" + desktop_entry.getName().decode('utf-8')
+        #jeong89
+        name = "" + desktop_entry.getName().decode('utf-8')
+        #name = u"" + desktop_entry.getName().decode('utf-8')
         exe = desktop_entry.getExec()
         wine = False
         chromium = False
@@ -1247,7 +1255,9 @@ class DockBar():
             if group.pinned:
                 continue
             identifier = group.identifier
-            rc = u"" + identifier.lower()
+            #jeong89
+            rc = "" + identifier.lower()
+            #rc = u"" + identifier.lower()
             if not rc:
                 continue
             if wine:
@@ -1393,8 +1403,7 @@ class DockBar():
                 identifier = ""
             path = group.desktop_entry.getFileName()
             # Todo: Is there any drawbacks from using encode("utf-8") here?
-            gconf_pinned_apps.append(identifier.encode("utf-8") + ";" +
-                                     path.encode("utf-8"))
+            gconf_pinned_apps.append(identifier + ";" + path)
         self.globals.set_launcher_apps_list(gconf_pinned_apps)
 
     def __add_launcher(self, identifier, path, isPinned):
@@ -1461,7 +1470,7 @@ class DockBar():
             if exe != "":
                 self.d_e_ids_by_exec[exe] = id
 
-            name = u"" + desktop_entry.getName().lower()
+            name = "" + desktop_entry.getName().lower()
             if name.find(" ")>-1:
                 self.d_e_ids_by_longname[name] = id
             else:
@@ -1473,7 +1482,7 @@ class DockBar():
                   self.d_e_ids_by_exec,
                   self.d_e_ids_by_longname,
                   self.d_e_ids_by_wine_program):
-            for key, value in l.items():
+            for key, value in list(l.items()):
                 if value == id:
                     l.pop(key)
                     break
@@ -1710,7 +1719,7 @@ class DockBar():
            "gkeys_select_next_window": _("Select next window in group"),
            "gkeys_select_previous_window": _("Select previous window in group")
                        }
-        for (s, f) in functions.items():
+        for (s, f) in list(functions.items()):
             if self.gkeys[s] is not None:
                 Keybinder.unbind(self.gkeys[s])
                 self.gkeys[s] = None
@@ -1863,7 +1872,7 @@ class DockBar():
                                                   keyboard_grabbed=True)
                 return
         # Check if it's any other global shortcut.
-        for name, func in functions.items():
+        for name, func in list(functions.items()):
             if not self.globals.settings[name]:
                 continue
             keystring = self.globals.settings["%s_keystr" % name]
@@ -1878,7 +1887,7 @@ class DockBar():
                 del mod_keys["shift"]
             elif "shift" in keystring.lower() and "Tab" in keystring:
                 keystring = keystring.replace("Tab", "ISO_Left_Tab")
-            for key, mask in mod_keys.items():
+            for key, mask in list(mod_keys.items()):
                 if (key in keystring.lower()) !=  bool(mask & event.state):
                     break
             else:

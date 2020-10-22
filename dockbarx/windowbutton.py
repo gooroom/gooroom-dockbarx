@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #-*- coding: utf-8 -*-
 
 #   windowbutton.py
@@ -36,12 +36,12 @@ from Xlib import X
 from Xlib.display import Display
 from PIL import Image
 
-from common import ODict, Globals, Opacify
-from common import connect, disconnect, opacify, deopacify
-from cairowidgets import *
-from log import logger
+from .common import ODict, Globals, Opacify
+from .common import connect, disconnect, opacify, deopacify
+from .cairowidgets import *
+from .log import logger
 
-import i18n
+from . import i18n
 _ = i18n.language.gettext
 
 try:
@@ -404,7 +404,6 @@ class WindowItem(CairoButton):
             else:
                 color = self.globals.colors["color2"]
         except:
-            print "= = => not have color or text"
             color = "#FFFFFF"
 
         text = "<span foreground=\"" + color + "\">" + text + "</span>"

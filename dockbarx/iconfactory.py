@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 #   iconfactory.py
 #
@@ -36,11 +36,11 @@ import array
 from math import pi, cos, sin
 from PIL import Image
 
-from theme import Theme
-from common import Globals, connect, disconnect
-from log import logger
+from .theme import Theme
+from .common import Globals, connect, disconnect
+from .log import logger
 
-import i18n
+from . import i18n
 _ = i18n.language.gettext
 
 class IconFactory():
@@ -160,7 +160,7 @@ class IconFactory():
             commands = self.theme.get_icon_dict()
             self.ar = self.theme.get_aspect_ratio(is_vertical)
             self.type = type
-            for command, args in commands.items():
+            for command, args in list(commands.items()):
                 try:
                     f = getattr(self, "_IconFactory__command_%s"%command)
                 except:
@@ -269,7 +269,7 @@ class IconFactory():
 
         for i in range(1, 9):
             if alpha in ("color%s"%i, "opacity%s"%i):
-                if self.globals.colors.has_key("color%s_alpha"%i):
+                if ("color%s_alpha"%i) in self.globals.colors:
                     a = float(self.globals.colors["color%s_alpha"%i])/255
                 else:
                     logger.warning("Theme error: The theme has no" + \
@@ -406,7 +406,7 @@ class IconFactory():
                 return surface
 
         # All tests passed, proceed.
-        for command, args in content.items():
+        for command, args in list(content.items()):
             try:
                 f = getattr(self,"_IconFactory__command_%s"%command)
             except:
@@ -427,7 +427,7 @@ class IconFactory():
         ctx.paint()
         if content is None:
             return surface
-        for command,args in content.items():
+        for command,args in list(content.items()):
             try:
                 f = getattr(self,"_IconFactory__command_%s"%command)
             except:
@@ -449,7 +449,7 @@ class IconFactory():
         self.temp[name] = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         if content is None:
             return surface
-        for command,args in content.items():
+        for command,args in list(content.items()):
             try:
                 f = getattr(self,"_IconFactory__command_%s"%command)
             except:
@@ -576,7 +576,7 @@ class IconFactory():
     def __icon_search_in_data_path(self, icon_name, icon_size):
         data_folders = None
 
-        if os.environ.has_key("XDG_DATA_DIRS"):
+        if "XDG_DATA_DIRS" in os.environ:
             data_folders = os.environ["XDG_DATA_DIRS"]
 
         if not data_folders:
@@ -947,8 +947,10 @@ class IconFactory():
     def __surface2pil(self, surface):
         w = surface.get_width()
         h = surface.get_height()
-        return Image.frombuffer("RGBA", (w, h), surface.get_data(),
-                                "raw", "BGRA", 0,1)
+        data = surface.create_for_data(surface.get_data(), cairo.FORMAT_ARGB32, w, h, w * 4)
+        #im = surface.create_from_png("RGBA", (w, h), surface.get_data(), "raw", "BGRA", 0, 1)
+        return Image.frombuffer("RGBA", (w, h), surface.get_data().tobytes(),
+                                "raw", "BGRA", 0, 1)
 
     def __pil2surface(self, im):
         """Transform a PIL Image into a Cairo ImageSurface."""

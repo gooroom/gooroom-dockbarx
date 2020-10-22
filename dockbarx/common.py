@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #-*- coding: utf-8 -*-
 
 #   common.py
@@ -29,11 +29,11 @@ import os
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 import xdg.DesktopEntry
-from urllib import unquote
+from urllib.parse import unquote
 from time import time
 import weakref
 import locale
-from log import logger
+from .log import logger
 import getpass
 
 GSETTINGS_CLIENT = Gio.Settings.new("org.dockbarx")
@@ -145,7 +145,7 @@ class ODict():
             return False
 
     def __iter__(self):
-        return self.keys().__iter__()
+        return list(self.keys()).__iter__()
 
     def __eq__(self, x):
         if type(x) == dict:
@@ -282,7 +282,7 @@ class DesktopEntry(xdg.DesktopEntry.DesktopEntry):
         # Replace file/uri arguments
         if "%f" in command or "%u" in command:
             # Launch once for every file (or uri).
-            iterlist = range(max(1, len(files)))
+            iterlist = list(range(max(1, len(files))))
         else:
             # Launch only one time.
             iterlist = [0]
@@ -356,7 +356,7 @@ class Opacify():
 
     def opacify(self, windows, opacifier=None):
         """Add semi-transparency to windows"""
-        if type(windows) in [long, int]:
+        if type(windows) in [int, int]:
             windows = [windows]
         if windows:
             windows = [str(xid) for xid in windows]
@@ -857,7 +857,7 @@ class Globals(GObject.GObject):
         theme_file = GSETTINGS_DOCK.get_string("theme-file")
         if tf == GSETTINGS_DOCK.get_string("theme-file"):
             dts = GSETTINGS_DOCK.get_child("theme")
-            for key, value in self.dock_colors.items():
+            for key, value in list(self.dock_colors.items()):
                 if keyname.replace("-", "_") == key:
                     if entry_get[type(value)] != value:
                         self.dock_colors[key] = entry_get[type(value)](keyname)
@@ -967,7 +967,7 @@ class Globals(GObject.GObject):
                 self.colors["color%s"%i] = "#000000"
             return
 
-        theme_name = theme_name.replace(" ", "_").encode()
+        theme_name = theme_name.replace(" ", "_")
         for sign in ("'", '"', "!", "?", "*", "(", ")", "/", "#", "@"):
             theme_name = theme_name.replace(sign, "")
 
@@ -1008,7 +1008,7 @@ class Globals(GObject.GObject):
     def update_popup_style(self, theme_name, default_style):
         # Runs when the theme has changed.
         self.default_popup_style = default_style
-        theme_name = theme_name.replace(" ", "_").encode()
+        theme_name = theme_name.replace(" ", "_")
         for sign in ("'", '"', "!", "?", "*", "(", ")", "/", "#", "@"):
             theme_name = theme_name.replace(sign, "")
         psf = "popup-style-file"
@@ -1044,7 +1044,7 @@ class Globals(GObject.GObject):
         if self.settings["dock/theme_file"] != theme:
             self.settings["dock/theme_file"] = theme
             GSETTINGS_DOCK.set_string("theme-file", theme.replace("_", "-"))
-        for key, value in colors.items():
+        for key, value in list(colors.items()):
             try:
                 self.dock_colors[key.replace('-', '_')] = gdt_set[gdt.get_value(key).get_type_string()](key)
             except:

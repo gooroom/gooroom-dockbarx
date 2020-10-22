@@ -19,7 +19,9 @@ gettext.install (True)
 gettext.bindtextdomain (APP_NAME,
                         mo_location)
 gettext.textdomain (APP_NAME)
-language = gettext.translation (APP_NAME,
+# fix .po file
+# remove encode()
+language = gettext.translation (APP_NAME.encode(),
                                 mo_location,
                                 fallback = True)
 

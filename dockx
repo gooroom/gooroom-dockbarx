@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #-*- coding: utf-8 -*-
 
 #   DockX
@@ -583,8 +583,9 @@ class DockX(CairoDockX):
         rect = self.get_monitor_geometry()
         mx = rect.x; my = rect.y; mw = rect.width; mh = rect.height
         l, r, t, b = self.__get_monitor_and_strut_borders()
-        sw = self.get_screen().get_width()
-        sh = self.get_screen().get_height()
+        screen = Wnck.Screen.get_default()
+        sw = screen.get_width()
+        sh = screen.get_height()
         rel_size = float(self.theme.get("rel_size", 100))
         db_size = self.globals.settings["dock/size"]
         size = max(db_size, int(db_size * rel_size / 100))
@@ -850,8 +851,10 @@ class DockX(CairoDockX):
         rect = self.get_monitor_geometry()
         mx = rect.x; my = rect.y; mw = rect.width; mh = rect.height
         #mx, my, mw, mh = self.get_monitor_geometry()
-        sw = self.get_screen().get_width()
-        sh = self.get_screen().get_height()
+
+        screen = Wnck.Screen.get_default()
+        sw = screen.get_width()
+        sh = screen.get_height()
         strut = [rect.x, sw - (mx + mw), my,  sh - (my + mh)]
         d = display.Display()
         strut_atom = d.get_atom('_NET_WM_STRUT')

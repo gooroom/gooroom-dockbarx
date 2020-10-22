@@ -165,20 +165,20 @@ class Theme():
                     if self.test_color(d["default"]):
                         self.default_colors[c] = d["default"]
                     else:
-                        print "Theme error: %s\'s default" % c + \
-                              " for theme %s cannot be read." % self.name
-                        print "A default color should start with an \"#\"" + \
+                        print ("Theme error: %s\'s default" % c + \
+                              " for theme %s cannot be read." % self.name)
+                        print ("A default color should start with an \"#\"" + \
                               " and be followed by six hex-digits, " + \
-                              "for example \"#FF13A2\"."
+                              "for example \"#FF13A2\".")
                 if d.has_key("opacity"):
                     alpha = d["opacity"]
                     if self.test_alpha(alpha):
                         self.default_alphas[c] = alpha
                     else:
-                        print "Theme error: %s\'s opacity" % c + \
-                              " for theme %s cannot be read." % self.name
-                        print "The opacity should be a number (\"0\"-\"100\")" + \
-                              " or the words \"not used\"."
+                        print ("Theme error: %s\'s opacity" % c + \
+                              " for theme %s cannot be read." % self.name)
+                        print ("The opacity should be a number (\"0\"-\"100\")" + \
+                              " or the words \"not used\".")
 
         tar.close()
 
@@ -2214,8 +2214,8 @@ class PrefDialog():
             daemon.ShowPreferences(dbus_interface=\
                                   "net.launchpad.DockManager.Daemon")
         except dbus.exceptions.DBusException, e:
-            print "Couldn't open DockManager Preferences"
-            print "reason: %s " % e
+            print ("Couldn't open DockManager Preferences")
+            print ("reason: %s " % e)
 
     def __set_font(self, button, name):
         font = button.get_font_name()

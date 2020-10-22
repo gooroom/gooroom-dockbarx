@@ -32,18 +32,18 @@ from time import sleep
 import os
 from xml.sax.saxutils import escape
 import weakref
-from windowbutton import Window
-from iconfactory import IconFactory
-import cairowidgets
-from cairowidgets import CairoMenuItem, CairoCheckMenuItem
-from cairowidgets import CairoPopup, CairoToggleMenu, CairoAppButton
-from dockmanager import DockManagerItem
-from unity import DBusMenu
-from common import *
-import zg
-from log import logger
+from .windowbutton import Window
+from .iconfactory import IconFactory
+from . import cairowidgets
+from .cairowidgets import CairoMenuItem, CairoCheckMenuItem
+from .cairowidgets import CairoPopup, CairoToggleMenu, CairoAppButton
+from .dockmanager import DockManagerItem
+from .unity import DBusMenu
+from .common import *
+from . import zg
+from .log import logger
 
-import i18n
+from . import i18n
 _ = i18n.language.gettext
 
 display = None
@@ -785,7 +785,7 @@ class Group(ListOfWindows):
             self.desktop_entry.launch_quicklist_entry(identifier[10:])
             return
         if self.dockmanager:
-            for id, menu_item in self.dockmanager.get_menu_items().items():
+            for id, menu_item in list(self.dockmanager.get_menu_items().items()):
                 if identifier == "dockmanager_%s" % id:
                     self.dockmanager.MenuItemActivated(id)
                     self.popup.hide()
@@ -1731,7 +1731,7 @@ class GroupButton(CairoAppButton):
     def do_drag_data_get(self, context, selection, targetType, eventTime):
         group = self.group_r()
         name = group.identifier or group.desktop_entry.getFileName()
-        selection.set(context.list_targets()[0], 8, name)
+        selection.set(context.list_targets()[0], 8, name.encode())
 
 
     def do_drag_end(self, drag_context, result=None):
@@ -1779,8 +1779,8 @@ class GroupButton(CairoAppButton):
                               #~ x, y, selection, targetType, t)
         name = group.identifier or group.desktop_entry.getFileName()
         if selection.get_target().name() == "text/groupbutton_name":
-            if selection.get_data() != name:
-                self.dockbar_r().groupbutton_moved(selection.get_data(),
+            if selection.get_data() != name.encode():
+                self.dockbar_r().groupbutton_moved(selection.get_data().decode(),
                                                    group,
                                                    self.dnd_position)
         elif selection.get_target().name() == "text/uri-list":
@@ -2667,7 +2667,7 @@ class GroupMenu(GObject.GObject):
         dm_menu_items = dockmanager.get_menu_items()
         if dm_menu_items:
             self.add_separator()
-        for (identifier, item) in dm_menu_items.items():
+        for (identifier, item) in list(dm_menu_items.items()):
             submenu = item.get("container-title", None)
             if submenu and not self.has_submenu(submenu):
                 self.add_submenu(submenu)
@@ -2870,12 +2870,12 @@ class GroupMenu(GObject.GObject):
         open_menus = []
         if not self.gtk_menu:
             # Get all open submenus
-            for identifier, menu in self.submenus.items():
+            for identifier, menu in list(self.submenus.items()):
                 if menu.get_toggled():
                     open_menus.append(identifier)
         # Remove the old parts of the quicklist and add the new.
         if layout[0] == 0:
-            for identifier, item in self.items.items():
+            for identifier, item in list(self.items.items()):
                 if not identifier.startswith("unity_"):
                     continue
                 for child in self.menu.get_children():

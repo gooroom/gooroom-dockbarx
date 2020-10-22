@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 #   theme.py
 #
@@ -29,12 +29,12 @@ from gi.repository import GObject
 
 import os
 import array
-from common import ODict
-from common import Globals
-from log import logger
+from .common import ODict
+from .common import Globals
+from .log import logger
 from PIL import Image
 
-import i18n
+from . import i18n
 _ = i18n.language.gettext
 
 class NoThemesError(Exception):
@@ -51,21 +51,21 @@ class ThemeHandler(ContentHandler):
         self.nested_attributes = []
 
     def startElement(self, name, attrs):
-        name = name.lower().encode()
+        #name = name.lower().encode()
         if name == "theme":
-            for attr in attrs.keys():
+            for attr in list(attrs.keys()):
                 if attr.lower() == "name":
                     self.name = attrs[attr]
             return
         # Add all attributes to a dictionary
         d = {}
-        for key, value in attrs.items():
+        for key, value in list(attrs.items()):
             # make sure that all text is in lower
             # except for file_names
-            if key.encode().lower() == "file_name":
-                d[key.encode().lower()] = value.encode()
+            if key == "file_name":
+                d[key] = value
             else:
-                d[key.encode().lower()] = value.encode().lower()
+                d[key] = value
         # Add a ODict to the dictionary in which all
         # content will be put.
         d["content"] = ODict()
@@ -90,7 +90,7 @@ class ThemeHandler(ContentHandler):
         # Remove Content Odict if the element
         # had no content.
         d = self.nested_attributes.pop()
-        if d["content"].keys() == []:
+        if list(d["content"].keys()) == []:
                 d.pop("content")
 
     def __add_to_types(self, type):
@@ -131,7 +131,7 @@ class Theme(GObject.GObject):
     def on_theme_changed(self, arg=None):
         self.themes = self.find_themes()
         default_theme_path = None
-        for theme, path in self.themes.items():
+        for theme, path in list(self.themes.items()):
             if theme.lower() == self.globals.settings["theme"].lower():
                 self.theme_path = path
                 break
@@ -145,7 +145,7 @@ class Theme(GObject.GObject):
             else:
                 # Just use one of the themes that where found if default
                 # theme couldn't be found either.
-                self.theme_path = self.themes.values()[0]
+                self.theme_path = list(self.themes.values())[0]
         self.reload()
 
     def find_themes(self):
@@ -165,17 +165,19 @@ class Theme(GObject.GObject):
         for theme_path in theme_paths:
             try:
                 name = self.check(theme_path)
-            except Exception, detail:
+            except Exception as detail:
                 logger.exception("Error loading theme from %s"%theme_path)
                 name = None
             if name is not None:
                 name = str(name)
                 themes[name] = theme_path
         if not themes:
-            md = gtk.MessageDialog(None,
-                gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                gtk.MESSAGE_ERROR, gtk.BUTTONS_CLOSE,
-                _("No working themes found in /usr/share/dockbarx/themes or ~/.dockbarx/themes"))
+            md = Gtk.MessageDialog (None,
+                                                        modal=True,
+                                                        destroy_with_parent=True,
+                                                        message_type=Gtk.MessageType.ERROR,
+                                                        buttons=Gtk.ButtonsType.CLOSE,
+                                                        text=_("No working themes found in /usr/share/dockbarx/themes or ~/.dockbarx/themes"))
             md.run()
             md.destroy()
             raise NoThemesError("No working themes found in " + \
@@ -184,7 +186,10 @@ class Theme(GObject.GObject):
 
     def reload(self):
         tar = taropen(self.theme_path)
-        config = tar.extractfile("config")
+        for member in tar.getmembers():
+            if member.name == "config":
+                config = tar.extractfile(member)
+                break
 
         # Parse
         parser = make_parser()
@@ -203,7 +208,7 @@ class Theme(GObject.GObject):
         pixmaps = {}
         if self.theme.has_key("pixmaps"):
             pixmaps = self.theme["pixmaps"]["content"]
-        for (type_, d) in pixmaps.items():
+        for (type_, d) in list(pixmaps.items()):
             if type_ == "pixmap_from_file":
                 self.surfaces[d["name"]] = self.load_surface(tar, d["file"])
 
@@ -222,9 +227,9 @@ class Theme(GObject.GObject):
             c = "color%s"%i
             if colors.has_key(c):
                 d = colors[c]
-                if d.has_key("name"):
+                if "name" in d:
                     self.color_names[c] = d["name"]
-                if d.has_key("default"):
+                if "default" in d:
                     if self.test_color(d["default"]):
                         self.default_colors[c] = d["default"]
                     else:
@@ -233,7 +238,7 @@ class Theme(GObject.GObject):
                         logger.info("A default color should start with an " + \
                                     "\"#\" and be followed by six " + \
                                     "hex-digits, for example \"#FF13A2\".")
-                if d.has_key("opacity"):
+                if "opacity" in d:
                     alpha = d["opacity"]
                     if self.test_alpha(alpha):
                         self.default_alphas[c] = alpha
@@ -251,7 +256,7 @@ class Theme(GObject.GObject):
         sets = {}
         if self.theme.has_key("sets"):
             sets = self.theme["sets"]["content"]
-        for (type_, d) in sets.items():
+        for (type_, d) in list(sets.items()):
             if type_ == "set":
                 self.sets[d["name"]] = d
         config.close()
@@ -266,10 +271,14 @@ class Theme(GObject.GObject):
     def check(self, path_to_tar):
         #TODO: Optimize this
         tar = taropen(path_to_tar)
-        config = tar.extractfile("config")
-        parser = make_parser()
-        theme_handler = ThemeHandler()
+        for member in tar.getmembers():
+            if member.name == "config":
+                print ("")
+                config = tar.extractfile(member)
+                break
         try:
+            parser = make_parser()
+            theme_handler = ThemeHandler()
             parser.setContentHandler(theme_handler)
             parser.parse(config)
         except:
@@ -281,13 +290,13 @@ class Theme(GObject.GObject):
         return theme_handler.get_name()
 
     def print_dict(self, d, indent=""):
-        for key in d.keys():
+        for key in list(d.keys()):
             if key == "content" or type(d[key]) == dict:
-                print "%s%s={"%(indent,key)
+                print ("%s%s={"%(indent,key))
                 self.print_dict(d[key], indent+"   ")
-                print "%s}"%indent
+                print ("%s}"%indent)
             else:
-                print "%s%s = %s"%(indent,key,d[key])
+                print ("%s%s = %s"%(indent,key,d[key]))
 
     def load_pixbuf(self, tar, name):
         f = tar.extractfile("pixmaps/"+name)
@@ -465,6 +474,7 @@ class PopupStyle(GObject.GObject):
         self.settings = {}
         for line in config.readlines():
             # Split at "=" and clean up the key and value
+            line = line.decode()
             if not "=" in line:
                 continue
             key, value = line.split("=", 1)
@@ -672,6 +682,7 @@ class DockTheme(GObject.GObject):
         name = None
         for line in config.readlines():
             # Split at "=" and clean up the key and value
+            line = line.decode()
             if not "=" in line:
                 continue
             key, value = line.split("=", 1)
@@ -719,7 +730,7 @@ class DockTheme(GObject.GObject):
             bgf.close()
         tar.close()
 
-        for key in self.default_colors.keys():
+        for key in list(self.default_colors.keys()):
             if key in self.settings:
                 value = self.settings.pop(key)
                 if "alpha" in key:
@@ -792,7 +803,7 @@ class DockTheme(GObject.GObject):
     def __surface2pil(self, surface):
         w = surface.get_width()
         h = surface.get_height()
-        return Image.frombuffer("RGBA", (w, h), surface.get_data(),
+        return Image.frombuffer("RGBA", (w, h), surface.get_data().tobytes(),
                                 "raw", "RGBA", 0,1)
 
 

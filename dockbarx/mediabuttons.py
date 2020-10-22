@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 #   dockbar.py
 #
@@ -23,8 +23,8 @@ from gi.repository import Gtk
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 
-from cairowidgets import *
-from log import logger
+from .cairowidgets import *
+from .log import logger
 import weakref
 
 DBusGMainLoop(set_as_default=True)
@@ -49,7 +49,7 @@ class MediaButtons(Gtk.Alignment):
         self.next_button = CairoNextButton()
         connect(self.previous_button, "clicked", self.previous)
         connect(self.playpause_button,"clicked", self.playpause)
-        connect(self.next_button, "clicked", self.next)
+        connect(self.next_button, "clicked", self.__next__)
         hbox.pack_start(self.previous_button)
         hbox.pack_start(self.playpause_button, padding=4)
         hbox.pack_start(self.next_button)
@@ -88,7 +88,7 @@ class MediaButtons(Gtk.Alignment):
                 self.player_iface.Play(reply_handler=self.__reply_handler,
                                        error_handler=self.__error_handler)
 
-    def next(self, *args):
+    def __next__(self, *args):
         self.player_iface.Next(reply_handler=self.__reply_handler,
                                error_handler=self.__error_handler)
 
@@ -114,7 +114,7 @@ class MediaButtons(Gtk.Alignment):
         pass
 
     def __error_handler(self, err):
-        print "DBus error in media buttons:", err
+        print (("DBus error in media buttons:{}".format(err)))
 
     def __on_properties_changed(self, iface, changed_props, inv_props):
         if "PlaybackStatus" in changed_props:

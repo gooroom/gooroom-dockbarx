@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 #-*- coding: utf-8 -*-
 
 #   cairowidgets.py
@@ -34,11 +34,9 @@ import cairo
 from math import pi, tan
 from xml.sax.saxutils import escape
 
-from common import Globals, connect, disconnect
-from theme import PopupStyle
-from log import logger
-
-test_drag = False
+from .common import Globals, connect, disconnect
+from .theme import PopupStyle
+from .log import logger
 
 class CairoAppButton(Gtk.EventBox):
     __gsignals__ = {"draw" : "override",
@@ -284,7 +282,8 @@ class CairoSmallButton(Gtk.Button):
 
         style = self.get_style_context()
         styleProvider = Gtk.CssProvider()
-        styleProvider.load_from_data("#close-button { padding: 0px; min-height: %dpx; min-width: %dpx;}" % (width, height))
+        data = ("#close-button { padding: 0px; min-height: %dpx; min-width: %dpx;}" % (width, height)).encode()
+        styleProvider.load_from_data(data)
         style.add_provider(styleProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.set_name("close-button")
         self.mousedown = False
