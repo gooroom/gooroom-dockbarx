@@ -1032,7 +1032,7 @@ class Globals(GObject.GObject):
                 return
             theme_name = theme_name.replace(" ", "_").encode()
             for sign in ("'", '"', "!", "?", "*", "(", ")", "/", "#", "@"):
-                theme_name = theme_name.replace(sign, "")
+                theme_name = str(theme_name).replace(sign, "")
             psf = "popup-style-file"
             GSETTINGS_THEMES.set_string(psf, style.replace("_", "-"))
             self.emit("preference-update")

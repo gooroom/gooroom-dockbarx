@@ -2,7 +2,7 @@ Source: gooroom-dockbarx
 Section: gnome
 Priority: extra
 Maintainer: gooroom <gooroom@gooroom.kr>
-Build-Depends: cdbs (>= 0.4.49), debhelper (>= 7), dh-python, python3
+Build-Depends: cdbs (>= 0.4.49), debhelper (>= 13), dh-python, python3
 X-Python-Version: >= 3.27
 Standards-Version: 3.9.7
 Homepage: http://www.gooroom.kr
@@ -18,13 +18,13 @@ Description: Gooroom DockBarX, an icon-based taskbar
 
 Package: gooroom-dockbarx-common
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends},
+Depends: ${misc:Depends}, ${python3:Depends},
 	python3-numpy,
 	python3-xlib,
 	python3-pil,
-  python3-xdg,
+	python3-xdg,
 	zeitgeist,
-	python-zeitgeist,
+	python3-zeitgeist,
 	at-spi2-core,
 	gir1.2-gtk-3.0,
 	gir1.2-wnck-3.0,
