@@ -121,7 +121,7 @@ class IconFactory():
 
     def set_size(self, size):
         if size <= 0:
-            # To avoid chrashes.
+            # To avoid crashes.
             size = 15
         self.size = size
         self.surfaces = {}
@@ -458,13 +458,14 @@ class IconFactory():
                 self.temp[name] = f(self.temp[name], **args)
         return surface
 
-
     #### Get icon
     def __command_get_icon(self,surface=None, size="0"):
         size = int(self.__get_use_size() + self.__process_size(size))
         if size <= 0:
-            # To avoid chrashes.
+            # To avoid crashes.
             size = 15
+        if size <=15 and size >=1:
+            size = 16
         if self.icon and\
            self.icon.get_width() == size and \
            self.icon.get_height() == size:
@@ -490,10 +491,13 @@ class IconFactory():
             del pb
             del pbs
         elif pb.get_width() != size:
-            pbs = pb.scale_simple(size, size, GdkPixbuf.InterpType.BILINEAR)
-            self.icon = self.__pixbuf2surface(pbs)
+            #subin
+            #Commented out the line below bcs it prints blurred icon
+            #pbs = pb.scale_simple(size, size, GdkPixbuf.InterpType.BILINEAR)
+            #self.icon = self.__pixbuf2surface(pbs)
+            self.icon = self.__pixbuf2surface(pb)
             del pb
-            del pbs
+            #del pbs
         else:
             self.icon = self.__pixbuf2surface(pb)
             del pb
