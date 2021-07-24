@@ -1,3 +1,10 @@
+gooroom-dockbarx (0.92+grm2u6) unstable; urgency=medium
+
+  [ jongkyung.woo ]
+  * [256035cc] Added arm64 architecure
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Sat, 24 Jul 2021 16:46:32 +0900
+
 gooroom-dockbarx (0.92+grm2u5) unstable; urgency=medium
 
   [ Haeryong Jeong ]
