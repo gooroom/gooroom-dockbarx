@@ -10,14 +10,14 @@ Vcs-Git: https://github.com/gooroom/gooroom-dockbarx.git
 Vcs-Browser: https://github.com/gooroom/gooroom-dockbarx
 
 Package: gooroom-dockbarx
-Architecture: all
+Architecture: any
 Depends:  ${misc:Depends}, gooroom-dockbarx-dockx
 Description: Gooroom DockBarX, an icon-based taskbar
  TaskBar with groupping and group manipulation.
  Experimental version.
 
 Package: gooroom-dockbarx-common
-Architecture: all
+Architecture: any
 Depends: ${misc:Depends}, ${python:Depends},
 	python-numpy,
 	python-xlib,
@@ -39,7 +39,7 @@ Description: Gooroom DockBarX common files
  This package contains the DockBarX common files
 
 Package: gooroom-dockbarx-dockx
-Architecture: all
+Architecture: any
 Depends: ${misc:Depends}, gooroom-dockbarx-common
 Conflicts: dockbarx (<< 0.90.2), gnome-dockbar-applet-launchers, gnome-dockbarx-applet (<= 0.21.5-0)
 Replaces: dockbarx (<< 0.90.2), gnome-dockbar-applet-launchers, gnome-dockbarx-applet (<= 0.21.5-0)
