@@ -574,6 +574,7 @@ class PopupStyle(GObject.GObject):
         oft = None
         for line in config.readlines():
             # Split at "=" and clean up the key and value
+            line = line.decode()
             if not "=" in line:
                 continue
             key, value = line.split("=", 1)
@@ -777,6 +778,7 @@ class DockTheme(GObject.GObject):
         name = None
         for line in config.readlines():
             # Split at "=" and clean up the key and value
+            line = line.decode()
             if not "=" in line:
                 continue
             key, value = line.split("=", 1)
