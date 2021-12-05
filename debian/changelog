@@ -1,3 +1,17 @@
+gooroom-dockbarx (1.3.0+grm3u1) unstable; urgency=medium
+
+  [ HaeRyong Jeong ]
+  * [6d878293] Porting to Python3
+
+  [ subin.kim ]
+  * [e3c44595] updated porting to Python3
+  * [89364090] fixed icon size error when the height changes
+
+  [ cjheo ]
+  * [5541a23a] Rebase for gooroom-3.0
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Sun, 05 Dec 2021 13:04:52 +0900
+
 gooroom-dockbarx (0.92+grm2u5) unstable; urgency=medium
 
   [ Haeryong Jeong ]
