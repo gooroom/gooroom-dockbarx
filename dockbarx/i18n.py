@@ -21,7 +21,7 @@ gettext.bindtextdomain (APP_NAME,
 gettext.textdomain (APP_NAME)
 # fix .po file
 # remove encode()
-language = gettext.translation (APP_NAME.encode(),
+language = gettext.translation (APP_NAME,
                                 mo_location,
                                 fallback = True)
 

@@ -57,7 +57,7 @@ class build_trans(cmd.Command):
                             os.makedirs(dest_path)
                         if not os.path.exists(dest):
                             print ("Compiling %s for %s" % (src, mo_file))
-                            msgfmt.make(src, dest)
+                            os.system("msgfmt %s -o %s" % (src,dest))
                         else:
                             src_mtime = os.stat(src)[8]
                             dest_mtime = os.stat(dest)[8]
