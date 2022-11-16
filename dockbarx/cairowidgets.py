@@ -555,8 +555,14 @@ class CairoPopup(Gtk.Window):
 
         self.alignment = Gtk.Alignment()
         self.alignment.set(0, 0, 0, 0)
-        Gtk.Window.add(self, self.alignment)
         self.alignment.show()
+
+        self.scrolled_window = Gtk.ScrolledWindow()
+        self.scrolled_window.add_with_viewport (self.alignment)
+        self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER)
+        self.scrolled_window.show()
+        Gtk.Window.add (self, self.scrolled_window)
+
         self.pointer = ""
         self.no_arrow = no_arrow
         if orient in ("down", "up"):

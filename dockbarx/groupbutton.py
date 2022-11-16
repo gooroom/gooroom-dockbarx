@@ -2047,6 +2047,13 @@ class GroupPopup(CairoPopup):
             self.resize(10, 10)
 
     def get_child_(self):
+        group = self.group_r()
+        if (len(group.get_windows())) > 10:
+            self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
+            self.scrolled_window.set_min_content_height (300)
+        else :
+            self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER)
+            self.scrolled_window.set_min_content_height (-1)
         return self.alignment.get_child()
 
     def do_size_allocate(self, allocation):
