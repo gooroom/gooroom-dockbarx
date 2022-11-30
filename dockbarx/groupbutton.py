@@ -1257,6 +1257,8 @@ class Group(ListOfWindows):
         self.remove_launch_timer()
 
     def action_show_menu(self, widget, event):
+        self.popup.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER)
+        self.popup.scrolled_window.set_min_content_height (-1)
         self.menu_show(event)
 
     def action_remove_pinned_app(self, widget=None, event=None):
@@ -2047,13 +2049,6 @@ class GroupPopup(CairoPopup):
             self.resize(10, 10)
 
     def get_child_(self):
-        group = self.group_r()
-        if (len(group.get_windows())) > 10:
-            self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
-            self.scrolled_window.set_min_content_height (300)
-        else :
-            self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER)
-            self.scrolled_window.set_min_content_height (-1)
         return self.alignment.get_child()
 
     def do_size_allocate(self, allocation):
@@ -2123,6 +2118,12 @@ class GroupPopup(CairoPopup):
         self.move(x, y)
         try:
             child_func = self.get_child_().on_popup_reallocate
+            if (len(group.get_windows())) > 10:
+                self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.EXTERNAL)
+                self.scrolled_window.set_min_content_height (300)
+            else :
+                self.scrolled_window.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER)
+                self.scrolled_window.set_min_content_height (-1)
         except AttributeError:
             pass
         else:
