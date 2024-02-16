@@ -134,8 +134,8 @@ class ODict():
     def __delitem__(self, key):
         self.remove(key)
 
-    def __len__(self):
-        self.list.__len__()
+#    def __len__(self):
+#        self.list.__len__()
 
     def __contains__(self, key):
         for t in self.list:
