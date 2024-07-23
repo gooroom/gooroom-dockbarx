@@ -26,11 +26,11 @@ msgstr ""
 #: dockbarx/groupbutton.py:331 dockbarx/groupbutton.py:623
 #: dockbarx/groupbutton.py:834
 msgid "_Launch application"
-msgstr "_Launch application"
+msgstr "Launch application"
 
 #: dockbarx/groupbutton.py:625 dockbarx/groupbutton.py:833
 msgid "_Pin application"
-msgstr "_Pin application"
+msgstr "Pin application"
 
 #: dockbarx/groupbutton.py:627 dockbarx/groupbutton.py:832
 msgid "Make custom launcher"
@@ -82,27 +82,27 @@ msgstr " all windows"
 #: dockbarx/groupbutton.py:703 dockbarx/groupbutton.py:826
 #: dockbarx/groupbutton.py:827 dockbarx/windowbutton.py:634
 msgid "Un_minimize"
-msgstr "Un_minimize"
+msgstr "Unminimize"
 
 #: dockbarx/groupbutton.py:705 dockbarx/groupbutton.py:823
 #: dockbarx/groupbutton.py:824 dockbarx/windowbutton.py:631
 msgid "_Minimize"
-msgstr "_Minimize"
+msgstr "Minimize"
 
 #: dockbarx/groupbutton.py:709 dockbarx/groupbutton.py:817
 #: dockbarx/groupbutton.py:818 dockbarx/windowbutton.py:643
 msgid "Ma_ximize"
-msgstr "Ma_ximise"
+msgstr "Maximise"
 
 #: dockbarx/groupbutton.py:712 dockbarx/groupbutton.py:820
 #: dockbarx/groupbutton.py:821 dockbarx/windowbutton.py:646
 msgid "Unma_ximize"
-msgstr "Unma_ximise"
+msgstr "Unmaximise"
 
 #: dockbarx/groupbutton.py:713 dockbarx/groupbutton.py:815
 #: dockbarx/groupbutton.py:816 dockbarx/windowbutton.py:652
 msgid "_Close"
-msgstr "_Close"
+msgstr "Close"
 
 #: dockbarx/groupbutton.py:2454 dockbarx/dockbar.py:1127
 msgid "Identifier"
@@ -324,7 +324,7 @@ msgstr "Preview size"
 
 #: dbx_preference:807
 msgid "Window title width"
-msgstr ""
+msgstr "Window title width"
 
 #: dbx_preference:822 dbx_preference:827
 msgid "Delay"
@@ -344,13 +344,15 @@ msgstr "Show previews"
 
 #: dbx_preference:857
 msgid "Show previews for minimized windows"
-msgstr ""
+msgstr "Show previews for minimized windows"
 
 #: dbx_preference:858
 msgid ""
 "To get previews for minimized windows you need to active \"Keep previews of "
 "minimized windows\" in Compiz plugin Workarounds."
 msgstr ""
+"To get previews for minimized windows you need to active \"Keep previews of "
+"minimized windows\" in Compiz plugin Workarounds."
 
 #: dbx_preference:868
 msgid "Locked list"
@@ -730,7 +732,7 @@ msgstr "Dock"
 
 #: dbx_preference:1367
 msgid "Dock Applets"
-msgstr ""
+msgstr "Dock Applets"
 
 #: dbx_preference:1368
 msgid "Appearance"
@@ -759,7 +761,7 @@ msgstr "Advanced"
 #: dbx_preference:1582
 #, python-format
 msgid "Settings and colors for %s"
-msgstr ""
+msgstr "Settings and colors for %s"
 
 #: dbx_preference:1632
 msgid "Ignore windows on other workspace"
@@ -783,7 +785,7 @@ msgstr ""
 
 #: dbx_preference:2097
 msgid "Theme Info"
-msgstr ""
+msgstr "Theme Info"
 
 #: dbx_preference:2191
 msgid ""

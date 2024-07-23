@@ -27,11 +27,11 @@ msgstr ""
 #: dockbarx/groupbutton.py:331 dockbarx/groupbutton.py:623
 #: dockbarx/groupbutton.py:834
 msgid "_Launch application"
-msgstr "프로그램 실행(_L)"
+msgstr "프로그램 실행"
 
 #: dockbarx/groupbutton.py:625 dockbarx/groupbutton.py:833
 msgid "_Pin application"
-msgstr "프로그램 고정(_P)"
+msgstr "프로그램 고정"
 
 #: dockbarx/groupbutton.py:627 dockbarx/groupbutton.py:832
 msgid "Make custom launcher"
@@ -83,27 +83,27 @@ msgstr " - 모든 창"
 #: dockbarx/groupbutton.py:703 dockbarx/groupbutton.py:826
 #: dockbarx/groupbutton.py:827 dockbarx/windowbutton.py:634
 msgid "Un_minimize"
-msgstr "최소화 취소(_M)"
+msgstr "최소화 취소"
 
 #: dockbarx/groupbutton.py:705 dockbarx/groupbutton.py:823
 #: dockbarx/groupbutton.py:824 dockbarx/windowbutton.py:631
 msgid "_Minimize"
-msgstr "최소화(_M)"
+msgstr "최소화"
 
 #: dockbarx/groupbutton.py:709 dockbarx/groupbutton.py:817
 #: dockbarx/groupbutton.py:818 dockbarx/windowbutton.py:643
 msgid "Ma_ximize"
-msgstr "최대화(_X)"
+msgstr "최대화"
 
 #: dockbarx/groupbutton.py:712 dockbarx/groupbutton.py:820
 #: dockbarx/groupbutton.py:821 dockbarx/windowbutton.py:646
 msgid "Unma_ximize"
-msgstr "최대화 취소(_X)"
+msgstr "최대화 취소"
 
 #: dockbarx/groupbutton.py:713 dockbarx/groupbutton.py:815
 #: dockbarx/groupbutton.py:816 dockbarx/windowbutton.py:652
 msgid "_Close"
-msgstr "닫기(_C)"
+msgstr "닫기"
 
 #: dockbarx/groupbutton.py:2454 dockbarx/dockbar.py:1127
 msgid "Identifier"
