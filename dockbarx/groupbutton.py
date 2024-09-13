@@ -27,6 +27,7 @@ from gi.repository import Pango
 from gi.repository import Gdk
 from gi.repository import GLib
 
+import threading
 from time import time
 from time import sleep
 import os
@@ -1419,6 +1420,8 @@ class GroupButton(CairoAppButton):
         CairoAppButton.__init__(self, None, group.dockbar_r().expose_on_clear)
         self.dockbar_r = weakref.ref(group.dockbar_r())
         self.group_r = weakref.ref(group)
+        self.hold_timer = None
+        self.long_pressed = False
         self.mouse_over = False
         self.pressed = False
         self.attention_effect_running = False
@@ -1726,6 +1729,11 @@ class GroupButton(CairoAppButton):
     #### DnD (source)
     def do_drag_begin(self, drag_context):
         group = self.group_r()
+
+        # If in long_pressed mode, reject drag state.
+        if self.long_pressed == True:
+            return
+
         self.is_current_drag_source = True
         self.globals.dragging = True
         group.popup.hide()
@@ -1951,6 +1959,17 @@ class GroupButton(CairoAppButton):
 
     def do_button_release_event(self, event):
         group = self.group_r()
+
+        # Cancel the hold timer if it exists
+        if self.hold_timer is not None:
+            self.hold_timer.cancel()
+            self.hold_timer = None
+
+        if self.long_pressed == True:
+            self.long_pressed = False
+            self.update_state()
+            return
+
         self.pressed = False
         self.update_state()
         # If a drag and drop just finnished set self.draggin to false
@@ -1980,6 +1999,13 @@ class GroupButton(CairoAppButton):
     def do_button_press_event(self, event):
         group = self.group_r()
         if not event.button in (1, 2, 3):
+            # If button event is not in 123 and current mode is tablet-mode,
+            # that  means it is touch panel event.
+
+            if os.path.exists("/etc/gooroom/.tablet-mode"):
+                # Start hold timer for 1 second
+                self.hold_timer = threading.Timer(0.5, self.handle_long_press, args=(event,))
+                self.hold_timer.start()
             return True
 
         button = {1:"left", 2: "middle", 3: "right"}[event.button]
@@ -2003,6 +2029,16 @@ class GroupButton(CairoAppButton):
             # Return False so that a drag-and-drop can be initiated if needed.
             return False
         return True
+
+    def handle_long_press(self, event):
+        # Button is still pressed
+        self.long_pressed = True
+        self.update_state()
+
+        # Occur "Menu open" action
+        action = self.globals.settings["groupbutton_right_click_action"]
+        group = self.group_r()
+        group.action_function_dict[action](group, self, event)
 
 
 class GroupPopup(CairoPopup):
