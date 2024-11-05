@@ -1,3 +1,10 @@
+gooroom-dockbarx (4.2.0+grm4u1) unstable; urgency=medium
+
+  [ gangmo.seong ]
+  * [04b052cd] [feat] Add tablet-mode func: long press to menu open
+
+ -- Gooroom Autobuilder <jenkins@gooroom.kr>  Tue, 05 Nov 2024 17:41:40 +0900
+
 gooroom-dockbarx (4.1.0+grm4u1) unstable; urgency=medium
 
   [ cjheo ]
